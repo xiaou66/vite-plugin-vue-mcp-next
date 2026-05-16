@@ -21,6 +21,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "play": "vite --config playground/vite.config.ts",
+    "inspect:mcp": "mcp-inspector",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
@@ -35,8 +37,32 @@
   "peerDependencies": {
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
   },
+  "pnpm": {
+    "packageExtensions": {
+      "@modelcontextprotocol/inspector@*": {
+        "dependencies": {
+          "commander": "^13.1.0"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@vue/devtools-core": "^8.1.2",
+    "@vue/devtools-kit": "^8.1.2",
+    "chrome-remote-interface": "^0.34.0",
+    "debug": "^4.4.0",
+    "hookable": "^6.1.1",
+    "nanoid": "^5.1.11",
+    "vite-dev-rpc": "^2.0.0",
+    "vite-hot-client": "^2.2.0",
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/inspector": "^0.21.2",
+    "@types/chrome-remote-interface": "^0.34.0",
+    "@types/debug": "^4.1.12",
     "@types/node": "^25.8.0",
     "eslint": "^10.4.0",
     "prettier": "^3.8.3",
@@ -47,4 +73,3 @@
     "vitest": "^4.1.6"
   }
 }
-
