@@ -5,7 +5,7 @@ import path from 'node:path'
 export interface UpdateCodexMcpClientConfigOptions {
   /** 目标 `.codex/config.toml` 文件路径。 */
   readonly configPath: string
-  /** 当前 Vite dev server 暴露的 MCP SSE 地址。 */
+  /** 当前 Vite dev server 暴露给 Codex 的 Streamable HTTP 地址。 */
   readonly mcpUrl: string
   /** Codex 中展示的 MCP 服务名，只替换该服务对应 TOML 区块。 */
   readonly serverName: string
@@ -14,8 +14,8 @@ export interface UpdateCodexMcpClientConfigOptions {
 /**
  * 写入 Codex 项目级 MCP 配置。
  *
- * 这里不引入 TOML 解析依赖，是因为首版只需要管理本插件拥有的一个区块；
- * 区块替换能最大限度保留用户已有模型、沙箱和其他 MCP 配置的原始文本。
+ * 这里不引入 TOML 解析依赖，是因为只需要追加本插件自己的区块；
+ * 不覆盖已有同名区块可以保留用户手动配置的端口、路径或兼容性参数。
  */
 export async function updateCodexMcpClientConfig(
   options: UpdateCodexMcpClientConfigOptions
@@ -41,7 +41,7 @@ function replaceOrAppendOwnedBlock(
   const matcher = createOwnedBlockMatcher(options.serverName)
 
   if (matcher.test(current)) {
-    return current.replace(matcher, block)
+    return ensureTrailingNewline(current)
   }
 
   const separator = current.trim() ? '\n\n' : ''
@@ -94,6 +94,10 @@ async function readOptionalTextFile(filePath: string): Promise<string> {
 
 function trimEndNewline(value: string): string {
   return value.replace(/\n+$/u, '')
+}
+
+function ensureTrailingNewline(value: string): string {
+  return value.endsWith('\n') ? value : `${value}\n`
 }
 
 function escapeRegExp(value: string): string {

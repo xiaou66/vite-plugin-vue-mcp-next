@@ -41,7 +41,7 @@ export function createRuntimeInjectionController(
         return undefined
       }
 
-      return "import { startRuntimeClient } from 'vite-plugin-vue-mcp-next/runtime/client';\nvoid startRuntimeClient();"
+      return "import { startRuntimeClient } from '@xiaou66/vite-plugin-vue-mcp-next/runtime/client';\nvoid startRuntimeClient();"
     },
     transformIndexHtml(html) {
       if (options.appendTo) {

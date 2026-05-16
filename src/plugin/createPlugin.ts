@@ -12,8 +12,8 @@ import type {
   VueMcpNextOptions
 } from '../types'
 import { createCdpLifecycleController } from './cdpLifecycle'
-import { updateCursorMcpConfig } from './cursorConfig'
 import { createRuntimeInjectionController } from './injectRuntime'
+import { updateMcpClientConfigs } from './mcpClientConfig'
 import { createRPCServer } from 'vite-dev-rpc'
 
 /**
@@ -49,8 +49,11 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
           timeout: -1
         }
       )
-      const mcpServer = createMcpServer(ctx, server)
-      setupMcpTransport(options.mcpPath, mcpServer, server)
+      setupMcpTransport(
+        options.mcpPath,
+        () => createMcpServer(ctx, server),
+        server
+      )
       server.ws.on(
         'vite-plugin-vue-mcp-next:page-connected',
         (payload: unknown) => {
@@ -78,13 +81,22 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
       )
 
       const port = String(server.config.server.port || 5173)
-      const mcpUrl = `http://${options.host}:${port}${options.mcpPath}/sse`
+      const mcpSseUrl = `http://${options.host}:${port}${options.mcpPath}/sse`
+      const mcpStreamableHttpUrl = `http://${options.host}:${port}${options.mcpPath}/mcp`
       const root = searchForWorkspaceRoot(server.config.root)
-      await updateCursorMcpConfig(root, mcpUrl, options)
+      await updateMcpClientConfigs(
+        root,
+        mcpSseUrl,
+        mcpStreamableHttpUrl,
+        options.mcpClients
+      )
 
       if (options.printUrl) {
         setTimeout(() => {
-          console.log(`  ➜  MCP:     Server is running at ${mcpUrl}`)
+          console.log(`  ➜  MCP:     SSE server is running at ${mcpSseUrl}`)
+          console.log(
+            `  ➜  MCP:     Streamable HTTP server is running at ${mcpStreamableHttpUrl}`
+          )
         }, 300)
       }
 

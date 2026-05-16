@@ -33,7 +33,11 @@ export async function updateJsonMcpClientConfig(
     const mcpServers = isPlainRecord(config.mcpServers)
       ? config.mcpServers
       : {}
-    mcpServers[options.serverName] = { url: options.mcpUrl }
+    if (Object.hasOwn(mcpServers, options.serverName)) {
+      return
+    }
+
+    mcpServers[options.serverName] = { type: 'sse', url: options.mcpUrl }
     config.mcpServers = mcpServers
 
     await fs.mkdir(path.dirname(options.configPath), { recursive: true })

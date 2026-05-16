@@ -5,9 +5,9 @@ import vueMcpNext from '../src'
 export default defineConfig({
   resolve: {
     alias: {
-      'vite-plugin-vue-mcp-next/runtime/client':
+      '@xiaou66/vite-plugin-vue-mcp-next/runtime/client':
         '/src/runtime/client.ts',
-      'vite-plugin-vue-mcp-next': '/src/index.ts'
+      '@xiaou66/vite-plugin-vue-mcp-next': '/src/index.ts'
     }
   },
   server: {

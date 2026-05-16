@@ -12,6 +12,7 @@ export type {
   CursorMcpConfig,
   DomOptions,
   EvaluateOptions,
+  McpClientConfigOptions,
   NetworkOptions,
   NetworkRecord,
   PageTarget,

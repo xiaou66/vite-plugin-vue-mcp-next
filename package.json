@@ -1,9 +1,20 @@
 {
   "name": "@xiaou66/vite-plugin-vue-mcp-next",
-  "version": "0.0.1",
-  "description": "Vite plugin template for Vue MCP runtime debugging.",
+  "version": "0.0.3",
+  "description": "Runtime DevTools MCP plugin for Vite and Vue development.",
   "type": "module",
   "private": false,
+  "license": "MIT",
+  "author": "xiaou66",
+  "homepage": "https://github.com/xiaou66/vite-plugin-vue-mcp-next#readme",
+  "bugs": {
+    "url": "https://github.com/xiaou66/vite-plugin-vue-mcp-next/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaou66/vite-plugin-vue-mcp-next.git"
+  },
+  "packageManager": "pnpm@10.33.3",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,8 +32,13 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -32,7 +48,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build"
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build",
+    "pack:dry-run": "npm pack --dry-run",
+    "publish:npm": "npm publish --access public",
+    "prepublishOnly": "pnpm run check"
   },
   "keywords": [
     "vite",

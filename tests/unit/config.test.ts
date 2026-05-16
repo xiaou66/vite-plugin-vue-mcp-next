@@ -34,4 +34,58 @@ describe('runtime DevTools options', () => {
     expect(options.network.maxRecords).toBe(10)
     expect(options.cdp.browserUrl).toBe('http://127.0.0.1:9222')
   })
+
+  it('enables all MCP client config targets by default', () => {
+    const options = mergeOptions()
+
+    expect(options.mcpClients).toEqual({
+      cursor: true,
+      codex: true,
+      claudeCode: true,
+      trae: true,
+      serverName: 'vue-mcp-next'
+    })
+  })
+
+  it('maps legacy cursor config into MCP client config', () => {
+    const options = mergeOptions({
+      updateCursorMcpJson: {
+        enabled: false,
+        serverName: 'custom-vue-mcp'
+      }
+    })
+
+    expect(options.updateCursorMcpJson).toEqual({
+      enabled: false,
+      serverName: 'custom-vue-mcp'
+    })
+    expect(options.mcpClients).toEqual({
+      cursor: false,
+      codex: true,
+      claudeCode: true,
+      trae: true,
+      serverName: 'custom-vue-mcp'
+    })
+  })
+
+  it('lets mcpClients override legacy cursor defaults when both are set', () => {
+    const options = mergeOptions({
+      updateCursorMcpJson: true,
+      mcpClients: {
+        cursor: false,
+        codex: false,
+        claudeCode: true,
+        trae: true,
+        serverName: 'manual-name'
+      }
+    })
+
+    expect(options.mcpClients).toEqual({
+      cursor: false,
+      codex: false,
+      claudeCode: true,
+      trae: true,
+      serverName: 'manual-name'
+    })
+  })
 })

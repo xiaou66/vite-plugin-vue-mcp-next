@@ -21,23 +21,63 @@
 
 ## 安装与使用
 
+```bash
+pnpm add -D @xiaou66/vite-plugin-vue-mcp-next
+```
+
 ```ts
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
-import vueMcpNext from 'vite-plugin-vue-mcp-next'
+import vueMcpNext from '@xiaou66/vite-plugin-vue-mcp-next'
 
 export default defineConfig({
   plugins: [vue(), vueMcpNext()]
 })
 ```
 
-启动 Vite 后，默认 MCP SSE 入口为：
+启动 Vite 后，默认会暴露两个 MCP 入口：
 
 ```text
-http://localhost:<vite-port>/__mcp/sse
+SSE: http://localhost:<vite-port>/__mcp/sse
+Streamable HTTP: http://localhost:<vite-port>/__mcp/mcp
 ```
 
-如果项目根目录已存在 `.cursor` 目录，插件会自动写入 `.cursor/mcp.json`，服务名默认是 `vue-mcp-next`。插件不会主动创建 `.cursor` 目录。
+启动 Vite dev server 后，插件会自动写入常见 AI 客户端的项目级 MCP 配置，服务名默认是 `vue-mcp-next`。自动配置只会在缺少同名 server 条目时新增配置；如果用户已经配置了 `vue-mcp-next`，插件不会重复写入或覆盖原配置。
+
+| 客户端 | 自动配置文件 | 默认端点 |
+|---|---|---|
+| Cursor | `.cursor/mcp.json` | SSE |
+| Codex | `.codex/config.toml` | Streamable HTTP |
+| Claude Code | `.mcp.json` | SSE |
+| Trae | `.trae/mcp.json` | SSE |
+
+实际端口以启动日志中的 `MCP: SSE server is running at ...` 和 `MCP: Streamable HTTP server is running at ...` 为准。
+
+### 手动配置 MCP 客户端
+
+如果你不想使用自动配置，或需要把地址复制到其他支持 HTTP MCP 的客户端，可以手动配置当前 Vite dev server 的 MCP 地址。
+
+Cursor、Claude Code、Trae 等 JSON 配置客户端可以使用：
+
+```json
+{
+  "mcpServers": {
+    "vue-mcp-next": {
+      "type": "sse",
+      "url": "http://localhost:5173/__mcp/sse"
+    }
+  }
+}
+```
+
+Codex 使用 TOML 配置：
+
+```toml
+[mcp_servers.vue-mcp-next]
+url = "http://localhost:5173/__mcp/mcp"
+```
+
+`5173` 是示例端口。若 Vite 使用了其他端口，请替换为启动日志中打印的 MCP 地址。
 
 ## 完整配置
 
@@ -47,6 +87,13 @@ vueMcpNext({
   host: 'localhost',
   printUrl: true,
   updateCursorMcpJson: true,
+  mcpClients: {
+    cursor: true,
+    codex: true,
+    claudeCode: true,
+    trae: true,
+    serverName: 'vue-mcp-next'
+  },
   appendTo: undefined,
   runtime: {
     mode: 'auto',
@@ -83,10 +130,11 @@ vueMcpNext({
 
 | 配置 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `mcpPath` | `string` | `'/__mcp'` | MCP 服务挂载路径，实际 SSE 地址是 `${mcpPath}/sse` |
-| `host` | `string` | `'localhost'` | 打印 MCP 地址和写入 Cursor 配置时使用的 host |
+| `mcpPath` | `string` | `'/__mcp'` | MCP 服务挂载路径，实际 SSE 地址是 `${mcpPath}/sse`，Streamable HTTP 地址是 `${mcpPath}/mcp` |
+| `host` | `string` | `'localhost'` | 打印 MCP 地址和写入 MCP 客户端配置时使用的 host |
 | `printUrl` | `boolean` | `true` | 是否在 Vite 启动日志中打印 MCP SSE 地址 |
-| `updateCursorMcpJson` | `boolean | { enabled: boolean; serverName?: string }` | `true` | 如果项目已有 `.cursor` 目录，是否自动写入 `.cursor/mcp.json` |
+| `mcpClients` | `{ cursor?: boolean; codex?: boolean; claudeCode?: boolean; trae?: boolean; serverName?: string }` | 全部启用 | 是否自动写入 Cursor、Codex、Claude Code、Trae 的项目级 MCP 配置 |
+| `updateCursorMcpJson` | `boolean | { enabled: boolean; serverName?: string }` | `true` | 兼容旧配置，建议新项目使用 `mcpClients` |
 | `appendTo` | `string | RegExp` | `undefined` | 非 HTML 入口注入点。配置后会在匹配入口模块前追加 runtime import |
 
 `appendTo` 适合 playground、框架包装入口、或不希望通过 `transformIndexHtml` 注入的场景：
@@ -320,7 +368,8 @@ pnpm run play
 
 ```text
 Local: http://localhost:3456/
-MCP: Server is running at http://localhost:3456/__mcp/sse
+MCP: SSE server is running at http://localhost:3456/__mcp/sse
+MCP: Streamable HTTP server is running at http://localhost:3456/__mcp/mcp
 ```
 
 当前 playground 页面入口为：
@@ -421,3 +470,65 @@ CDP 验证通过时，以下工具返回中应出现 `source: 'cdp'`：
 | `pnpm run check` | 串行执行类型检查、Lint、测试和构建 |
 | `pnpm run play` | 启动本地 playground |
 | `pnpm run inspect:mcp` | 启动 MCP Inspector |
+
+## 发布到 npm
+
+包名已经配置为：
+
+```text
+@xiaou66/vite-plugin-vue-mcp-next
+```
+
+发布前需要确认 npm 已登录，并且账号具备 `@xiaou66` scope 的发布权限：
+
+```bash
+npm whoami
+```
+
+如果未登录：
+
+```bash
+npm login
+```
+
+发布前检查：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm run pack:dry-run
+```
+
+正式发布：
+
+```bash
+pnpm run publish:npm
+```
+
+该包是 scoped package，`package.json` 已配置：
+
+```json
+{
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
+```
+
+因此也可以直接执行：
+
+```bash
+npm publish
+```
+
+发布脚本会在 `prepublishOnly` 阶段自动执行 `pnpm run check`。该检查会生成 `dist/`，npm 发布包只包含 `dist`、`README.md` 和 `LICENSE`。
+
+当前发布配置包含：
+
+- `license: MIT`
+- `repository: git+https://github.com/xiaou66/vite-plugin-vue-mcp-next.git`
+- `homepage: https://github.com/xiaou66/vite-plugin-vue-mcp-next#readme`
+- `bugs: https://github.com/xiaou66/vite-plugin-vue-mcp-next/issues`
+- `publishConfig.access: public`
+- `files: dist, README.md, LICENSE`

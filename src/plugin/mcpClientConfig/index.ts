@@ -17,7 +17,8 @@ export type ResolvedMcpClientConfigOptions =
  */
 export async function updateMcpClientConfigs(
   root: string,
-  mcpUrl: string,
+  sseUrl: string,
+  streamableHttpUrl: string,
   options: ResolvedMcpClientConfigOptions
 ): Promise<void> {
   const serverName = options.serverName
@@ -28,7 +29,7 @@ export async function updateMcpClientConfigs(
       updateJsonMcpClientConfig({
         clientName: 'Cursor',
         configPath: path.join(root, '.cursor', 'mcp.json'),
-        mcpUrl,
+        mcpUrl: sseUrl,
         serverName
       })
     )
@@ -38,7 +39,7 @@ export async function updateMcpClientConfigs(
     jobs.push(
       updateCodexMcpClientConfig({
         configPath: path.join(root, '.codex', 'config.toml'),
-        mcpUrl,
+        mcpUrl: streamableHttpUrl,
         serverName
       })
     )
@@ -49,7 +50,7 @@ export async function updateMcpClientConfigs(
       updateJsonMcpClientConfig({
         clientName: 'Claude Code',
         configPath: path.join(root, '.mcp.json'),
-        mcpUrl,
+        mcpUrl: sseUrl,
         serverName
       })
     )
@@ -60,7 +61,7 @@ export async function updateMcpClientConfigs(
       updateJsonMcpClientConfig({
         clientName: 'Trae',
         configPath: path.join(root, '.trae', 'mcp.json'),
-        mcpUrl,
+        mcpUrl: sseUrl,
         serverName
       })
     )

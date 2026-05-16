@@ -34,6 +34,7 @@ describe('JSON MCP client config writer', () => {
     expect(JSON.parse(raw)).toEqual({
       mcpServers: {
         'vue-mcp-next': {
+          type: 'sse',
           url: 'http://localhost:5173/__mcp/sse'
         }
       }
@@ -74,7 +75,45 @@ describe('JSON MCP client config writer', () => {
           url: 'https://example.com/mcp'
         },
         'vue-mcp-next': {
+          type: 'sse',
           url: 'http://localhost:5173/__mcp/sse'
+        }
+      }
+    })
+  })
+
+  it('keeps an existing JSON MCP server unchanged', async () => {
+    const configPath = path.join(tempRoot, '.cursor', 'mcp.json')
+    await fs.mkdir(path.dirname(configPath), { recursive: true })
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(
+        {
+          mcpServers: {
+            'vue-mcp-next': {
+              type: 'sse',
+              url: 'http://localhost:4100/__mcp/sse'
+            }
+          }
+        },
+        null,
+        2
+      )
+    )
+
+    await updateJsonMcpClientConfig({
+      clientName: 'Cursor',
+      configPath,
+      mcpUrl: 'http://localhost:5173/__mcp/sse',
+      serverName: 'vue-mcp-next'
+    })
+
+    const raw = await fs.readFile(configPath, 'utf-8')
+    expect(JSON.parse(raw)).toEqual({
+      mcpServers: {
+        'vue-mcp-next': {
+          type: 'sse',
+          url: 'http://localhost:4100/__mcp/sse'
         }
       }
     })
@@ -109,12 +148,12 @@ describe('Codex MCP client config writer', () => {
 
     await updateCodexMcpClientConfig({
       configPath,
-      mcpUrl: 'http://localhost:5173/__mcp/sse',
+      mcpUrl: 'http://localhost:5173/__mcp/mcp',
       serverName: 'vue-mcp-next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/sse"\n'
+      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
     )
   })
 
@@ -128,16 +167,16 @@ describe('Codex MCP client config writer', () => {
 
     await updateCodexMcpClientConfig({
       configPath,
-      mcpUrl: 'http://localhost:5173/__mcp/sse',
+      mcpUrl: 'http://localhost:5173/__mcp/mcp',
       serverName: 'vue-mcp-next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      'model = "gpt-5.5"\n\n[mcp_servers.existing]\nurl = "https://example.com/mcp"\n\n[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/sse"\n'
+      'model = "gpt-5.5"\n\n[mcp_servers.existing]\nurl = "https://example.com/mcp"\n\n[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
     )
   })
 
-  it('replaces only the owned Codex server block', async () => {
+  it('keeps an existing Codex server block unchanged', async () => {
     const configPath = path.join(tempRoot, '.codex', 'config.toml')
     await fs.mkdir(path.dirname(configPath), { recursive: true })
     await fs.writeFile(
@@ -147,12 +186,31 @@ describe('Codex MCP client config writer', () => {
 
     await updateCodexMcpClientConfig({
       configPath,
-      mcpUrl: 'http://localhost:5173/__mcp/sse',
+      mcpUrl: 'http://localhost:5173/__mcp/mcp',
       serverName: 'vue-mcp-next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/sse"\n\n[mcp_servers.other]\nurl = "https://example.com/mcp"\n'
+      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:3000/old/sse"\n\n[mcp_servers.other]\nurl = "https://example.com/mcp"\n'
+    )
+  })
+
+  it('separates appended Codex config when existing file has no trailing newline', async () => {
+    const configPath = path.join(tempRoot, '.codex', 'config.toml')
+    await fs.mkdir(path.dirname(configPath), { recursive: true })
+    await fs.writeFile(
+      configPath,
+      '[mcp_servers.apifox-filter.env]\nAPIFOX_ACCESS_TOKEN = "redacted"'
+    )
+
+    await updateCodexMcpClientConfig({
+      configPath,
+      mcpUrl: 'http://localhost:5173/__mcp/mcp',
+      serverName: 'vue-mcp-next'
+    })
+
+    await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
+      '[mcp_servers.apifox-filter.env]\nAPIFOX_ACCESS_TOKEN = "redacted"\n\n[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
     )
   })
 
@@ -161,12 +219,12 @@ describe('Codex MCP client config writer', () => {
 
     await updateCodexMcpClientConfig({
       configPath,
-      mcpUrl: 'http://localhost:5173/__mcp/sse',
+      mcpUrl: 'http://localhost:5173/__mcp/mcp',
       serverName: 'vue mcp next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      '[mcp_servers."vue mcp next"]\nurl = "http://localhost:5173/__mcp/sse"\n'
+      '[mcp_servers."vue mcp next"]\nurl = "http://localhost:5173/__mcp/mcp"\n'
     )
   })
 })
@@ -176,6 +234,7 @@ describe('MCP client config orchestration', () => {
     await updateMcpClientConfigs(
       tempRoot,
       'http://localhost:5173/__mcp/sse',
+      'http://localhost:5173/__mcp/mcp',
       {
         cursor: true,
         codex: true,
