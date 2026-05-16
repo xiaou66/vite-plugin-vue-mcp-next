@@ -11,13 +11,12 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
   "include": [
     "src",
     "tests",
+    "playground",
     "tsup.config.ts",
     "vitest.config.ts"
   ]

@@ -1,9 +1,9 @@
 {
-  "name": "vite-plugin-vue-mcp-next",
-  "version": "0.0.0",
+  "name": "@xiaou66/vite-plugin-vue-mcp-next",
+  "version": "0.0.1",
   "description": "Vite plugin template for Vue MCP runtime debugging.",
   "type": "module",
-  "private": true,
+  "private": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,6 +12,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./runtime/client": {
+      "types": "./dist/runtime/client.d.ts",
+      "import": "./dist/runtime/client.js",
+      "require": "./dist/runtime/client.cjs"
     }
   },
   "files": [
@@ -23,6 +28,7 @@
     "dev": "tsup --watch",
     "play": "vite --config playground/vite.config.ts",
     "inspect:mcp": "mcp-inspector",
+    "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
@@ -64,12 +70,16 @@
     "@types/chrome-remote-interface": "^0.34.0",
     "@types/debug": "^4.1.12",
     "@types/node": "^25.8.0",
+    "@vitejs/plugin-vue": "^6.0.7",
     "eslint": "^10.4.0",
+    "pinia": "^3.0.4",
     "prettier": "^3.8.3",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.3",
     "vite": "^8.0.13",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.6",
+    "vue": "^3.5.34",
+    "vue-router": "^5.0.7"
   }
 }

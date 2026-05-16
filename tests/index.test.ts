@@ -6,4 +6,3 @@ describe('vueMcpNext', () => {
     expect(vueMcpNext().name).toBe('vite-plugin-vue-mcp-next')
   })
 })
-

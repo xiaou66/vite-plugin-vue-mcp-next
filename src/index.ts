@@ -1,17 +1,23 @@
-import type { Plugin } from 'vite'
-
-export interface VueMcpNextPluginOptions {
-  /** 预留给后续开发态调试开关，当前模板不读取该配置 */
-  readonly enabled?: boolean
-}
-
-export function vueMcpNext(_options: VueMcpNextPluginOptions = {}): Plugin {
-  // 保留 options 入口，后续接入 MCP 调试能力时不需要破坏公开 API
-  void _options
-
-  return {
-    name: 'vite-plugin-vue-mcp-next'
-  }
-}
-
-export default vueMcpNext
+/**
+ * vite-plugin-vue-mcp-next 的公开入口。
+ *
+ * 入口文件只负责导出插件工厂和类型，具体实现放在 `plugin/createPlugin`，
+ * 避免后续 MCP、CDP、Runtime 逻辑把公开 API 文件变成大文件。
+ */
+export { vueMcpNext, vueMcpNext as default } from './plugin/createPlugin'
+export type {
+  CdpOptions,
+  ConsoleOptions,
+  ConsoleRecord,
+  CursorMcpConfig,
+  DomOptions,
+  EvaluateOptions,
+  NetworkOptions,
+  NetworkRecord,
+  PageTarget,
+  ResolvedVueMcpNextOptions,
+  RuntimeMode,
+  RuntimeOptions,
+  VueMcpNextContext,
+  VueMcpNextOptions
+} from './types'
