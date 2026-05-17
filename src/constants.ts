@@ -16,12 +16,16 @@ import type {
 /** 默认 MCP 挂载路径，使用双下划线前缀避免与业务路由冲突。 */
 export const DEFAULT_MCP_PATH = '/__mcp'
 
+/** 默认截图最大响应体积，避免 base64 图片挤占 MCP 客户端上下文。 */
+export const DEFAULT_SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024
+
 /** MCP 工具名集中管理，避免工具注册和测试中出现拼写漂移。 */
 export const MCP_TOOL_NAMES = {
   listPages: 'list_pages',
   getPageState: 'get_page_state',
   getDomTree: 'get_dom_tree',
   queryDom: 'query_dom',
+  takeScreenshot: 'take_screenshot',
   getConsoleLogs: 'get_console_logs',
   clearConsoleLogs: 'clear_console_logs',
   evaluateScript: 'evaluate_script',
@@ -42,6 +46,13 @@ export const VIRTUAL_RUNTIME_ID = 'virtual:vite-plugin-vue-mcp-next/runtime'
 
 /** Vite 内部解析虚拟模块时需要使用的空字节前缀。 */
 export const RESOLVED_VIRTUAL_RUNTIME_ID = `\0${VIRTUAL_RUNTIME_ID}`
+
+/** snapdom 扩展虚拟模块 ID，用静态 import 支持 Vite alias 和源码转换。 */
+export const VIRTUAL_SCREENSHOT_CONFIG_ID =
+  'virtual:vite-plugin-vue-mcp-next/screenshot-config'
+
+/** Vite 内部解析截图配置虚拟模块时使用空字节前缀，避免与真实文件冲突。 */
+export const RESOLVED_VIRTUAL_SCREENSHOT_CONFIG_ID = `\0${VIRTUAL_SCREENSHOT_CONFIG_ID}`
 
 /** 默认 MCP 客户端服务名，集中定义可以让旧 Cursor 配置和新多客户端配置保持一致。 */
 const DEFAULT_MCP_CLIENT_SERVER_NAME = 'vue-mcp-next'
@@ -85,6 +96,14 @@ export const DEFAULT_OPTIONS: ResolvedVueMcpNextOptions = {
   },
   console: {
     maxRecords: DEFAULT_CONSOLE_MAX_RECORDS
+  },
+  screenshot: {
+    prefer: 'auto',
+    maxBytes: DEFAULT_SCREENSHOT_MAX_BYTES,
+    snapdom: {
+      options: {},
+      plugins: []
+    }
   }
 }
 
@@ -157,6 +176,22 @@ export function mergeOptions(
     console: {
       ...DEFAULT_OPTIONS.console,
       ...options.console
+    },
+    screenshot: {
+      ...DEFAULT_OPTIONS.screenshot,
+      ...options.screenshot,
+      snapdom: {
+        ...DEFAULT_OPTIONS.screenshot.snapdom,
+        ...options.screenshot?.snapdom,
+        options: {
+          ...DEFAULT_OPTIONS.screenshot.snapdom.options,
+          ...options.screenshot?.snapdom?.options
+        },
+        plugins:
+          options.screenshot?.snapdom?.plugins ?? [
+            ...DEFAULT_OPTIONS.screenshot.snapdom.plugins
+          ]
+      }
     }
   }
 }

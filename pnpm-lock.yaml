@@ -19,6 +19,9 @@ importers:
       '@vue/devtools-kit':
         specifier: ^8.1.2
         version: 8.1.2
+      '@zumer/snapdom':
+        specifier: ^2.12.0
+        version: 2.12.0
       chrome-remote-interface:
         specifier: ^0.34.0
         version: 0.34.0
@@ -1305,6 +1308,9 @@ packages:
 
   '@vue/shared@3.5.34':
     resolution: {integrity: sha512-24uqU4OIiX29ryC3MeWid/Xf2fa2EFRUVLb77nRhk+UrTVrh/XiGtFAFmJBAtBRbjwNdsPRP+jj/OL27Eg1NDA==}
+
+  '@zumer/snapdom@2.12.0':
+    resolution: {integrity: sha512-TdLGu+1RkKI3JKfMFvn1gRPD/rl8hrAeN6aFjjd0w7S39nulbd94ChxSlfH7nSCm8kzuQkeWFxIsij4+Mk1RDg==}
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -4008,6 +4014,8 @@ snapshots:
       vue: 3.5.34(typescript@6.0.3)
 
   '@vue/shared@3.5.34': {}
+
+  '@zumer/snapdom@2.12.0': {}
 
   accepts@2.0.0:
     dependencies:

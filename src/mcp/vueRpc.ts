@@ -22,6 +22,10 @@ export function createServerVueRuntimeRpc(
     onEvaluateScriptUpdated: (event, data) => {
       void ctx.hooks.callHook(event, data)
     },
+    takeScreenshot: () => undefined,
+    onScreenshotTaken: (event, data) => {
+      void ctx.hooks.callHook(event, data)
+    },
     getInspectorTree: () => undefined,
     onInspectorTreeUpdated: (event, data) => {
       void ctx.hooks.callHook(event, data)

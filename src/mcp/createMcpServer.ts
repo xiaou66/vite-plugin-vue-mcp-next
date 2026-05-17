@@ -6,6 +6,7 @@ import { registerDomTools } from './tools/dom'
 import { registerEvaluateTools } from './tools/evaluate'
 import { registerNetworkTools } from './tools/network'
 import { registerPageTools } from './tools/pages'
+import { registerScreenshotTools } from './tools/screenshot'
 import { registerVueTools } from './tools/vue'
 
 /**
@@ -25,6 +26,7 @@ export function createMcpServer(
 
   registerPageTools(server, ctx, vite)
   registerDomTools(server, ctx)
+  registerScreenshotTools(server, ctx)
   registerConsoleTools(server, ctx)
   registerEvaluateTools(server, ctx)
   registerNetworkTools(server, ctx)

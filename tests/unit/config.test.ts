@@ -47,6 +47,58 @@ describe('runtime DevTools options', () => {
     })
   })
 
+  it('merges screenshot defaults', () => {
+    const options = mergeOptions()
+
+    expect(options.screenshot).toEqual({
+      prefer: 'auto',
+      maxBytes: 5 * 1024 * 1024,
+      snapdom: {
+        options: {},
+        plugins: []
+      }
+    })
+  })
+
+  it('merges snapdom options and Vite import path plugins', () => {
+    const options = mergeOptions({
+      screenshot: {
+        prefer: 'runtime',
+        maxBytes: 1024,
+        snapdom: {
+          options: {
+            scale: 2,
+            useProxy: 'http://localhost:3000/proxy?url=',
+            exclude: ['[data-no-screenshot]']
+          },
+          plugins: [
+            '/src/screenshot/watermark.ts',
+            {
+              path: '@/screenshot/mask-sensitive',
+              exportName: 'createMaskPlugin',
+              options: { selectors: ['.token'] }
+            }
+          ],
+          filter: '/src/screenshot/filter.ts',
+          fallbackURL: '/src/screenshot/fallback-url.ts'
+        }
+      }
+    })
+
+    expect(options.screenshot.prefer).toBe('runtime')
+    expect(options.screenshot.maxBytes).toBe(1024)
+    expect(options.screenshot.snapdom.options).toEqual({
+      scale: 2,
+      useProxy: 'http://localhost:3000/proxy?url=',
+      exclude: ['[data-no-screenshot]']
+    })
+    expect(options.screenshot.snapdom.plugins).toHaveLength(2)
+    expect(options.screenshot.snapdom.filter).toBe('/src/screenshot/filter.ts')
+    expect(options.screenshot.snapdom.fallbackURL).toBe(
+      '/src/screenshot/fallback-url.ts'
+    )
+  })
+
   it('maps legacy cursor config into MCP client config', () => {
     const options = mergeOptions({
       updateCursorMcpJson: {

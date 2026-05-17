@@ -1,6 +1,6 @@
 {
   "name": "@xiaou66/vite-plugin-vue-mcp-next",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Runtime DevTools MCP plugin for Vite and Vue development.",
   "type": "module",
   "private": false,
@@ -75,6 +75,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@vue/devtools-core": "^8.1.2",
     "@vue/devtools-kit": "^8.1.2",
+    "@zumer/snapdom": "^2.12.0",
     "chrome-remote-interface": "^0.34.0",
     "debug": "^4.4.0",
     "hookable": "^6.1.1",

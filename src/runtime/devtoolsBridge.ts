@@ -1,6 +1,7 @@
 import type { VueRuntimeRpc } from '../types'
 import { createDomSnapshot, queryDomElements } from './domSnapshot'
 import { evaluateExpression } from './evaluateExpression'
+import { takeRuntimeScreenshot } from './screenshot'
 
 /**
  * 创建通用 Runtime DevTools RPC。
@@ -18,6 +19,8 @@ export function createRuntimeDevtoolsRpc(
   | 'onDomQueryUpdated'
   | 'evaluateScript'
   | 'onEvaluateScriptUpdated'
+  | 'takeScreenshot'
+  | 'onScreenshotTaken'
 > {
   return {
     getDomTree(options) {
@@ -51,6 +54,20 @@ export function createRuntimeDevtoolsRpc(
         })
       }
     },
-    onEvaluateScriptUpdated: () => undefined
+    onEvaluateScriptUpdated: () => undefined,
+    async takeScreenshot(options) {
+      try {
+        getRpc().onScreenshotTaken(
+          options.event,
+          await takeRuntimeScreenshot(options)
+        )
+      } catch (error) {
+        getRpc().onScreenshotTaken(options.event, {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    },
+    onScreenshotTaken: () => undefined
   }
 }

@@ -31,6 +31,8 @@ export interface VueMcpNextOptions {
   readonly dom?: DomOptions
   /** Console 日志缓存限制；日志是持续增长数据源，必须防止内存无界增长。 */
   readonly console?: ConsoleOptions
+  /** Screenshot 配置；CDP 真截图优先，runtime 降级使用 snapdom。 */
+  readonly screenshot?: ScreenshotOptions
 }
 
 /**
@@ -154,6 +156,159 @@ export interface ConsoleOptions {
 }
 
 /**
+ * 截图通道选择策略。
+ *
+ * 页面截图在有 CDP 时应该尽量返回真实浏览器像素；没有 CDP 的开发场景则允许降级到 runtime，
+ * 因此这里显式暴露策略，避免调用方误以为所有截图来源都具备同等准确度。
+ */
+export type ScreenshotPrefer = 'auto' | 'cdp' | 'runtime'
+
+/**
+ * 截图目标范围。
+ *
+ * 视口、整页和元素截图的坐标来源不同，提前收敛枚举可以让 CDP 与 snapdom 两条通道共享同一套参数校验。
+ */
+export type ScreenshotTarget = 'viewport' | 'fullPage' | 'element'
+
+/**
+ * 截图输出格式。
+ *
+ * MCP 返回 base64 数据，格式会直接影响体积；限制为常见浏览器截图格式可以简化大小控制和文档说明。
+ */
+export type ScreenshotFormat = 'png' | 'jpeg' | 'webp'
+
+/**
+ * snapdom 插件路径对象。
+ *
+ * 插件函数必须在浏览器 runtime 里通过 Vite import 加载，不能从 Node 侧配置直接序列化过去；
+ * 该对象用于描述要加载哪个模块、读取哪个导出，以及是否传入插件工厂参数。
+ */
+export interface SnapdomPluginImportObject {
+  /** Vite import 路径，适用于 `/src/foo.ts`、`@/foo` 这类由 Vite 解析的源码路径。 */
+  readonly path: string
+  /** 非默认导出插件时使用，避免强制用户改造已有模块结构。 */
+  readonly exportName?: string
+  /** 插件工厂参数，只允许可序列化数据，适合遮罩选择器、水印文案等配置。 */
+  readonly options?: unknown
+}
+
+/**
+ * snapdom 插件导入声明。
+ *
+ * 字符串覆盖最常见的默认导出插件；对象形式用于已有模块使用命名导出或需要工厂参数的场景。
+ */
+export type SnapdomPluginImport = string | SnapdomPluginImportObject
+
+/**
+ * 可安全从 Node 配置传到浏览器 runtime 的 snapdom options。
+ *
+ * snapdom 原生 options 包含函数型字段；这里仅接收 JSON-safe 部分，函数型能力统一通过 Vite import 路径加载。
+ */
+export interface JsonSafeSnapdomOptions {
+  /** DOM 截图缩放倍率，适合在清晰度和 MCP 响应体积之间取舍。 */
+  readonly scale?: number
+  /** 设备像素比覆盖值，适合需要模拟高分屏截图的场景。 */
+  readonly dpr?: number
+  /** 输出宽度覆盖值，适合固定截图尺寸的自动化对比场景。 */
+  readonly width?: number
+  /** 输出高度覆盖值，适合固定截图尺寸的自动化对比场景。 */
+  readonly height?: number
+  /** 背景色兜底，适合页面自身透明但截图需要稳定底色的场景。 */
+  readonly backgroundColor?: string
+  /** 有损格式质量，适合控制 jpeg/webp 体积。 */
+  readonly quality?: number
+  /** snapdom 资源缓存策略，适合重复截图时减少资源重取成本。 */
+  readonly cache?: boolean | 'soft' | 'disabled'
+  /** 是否嵌入字体，适合需要尽量还原文本视觉的截图场景。 */
+  readonly embedFonts?: boolean
+  /** 是否使用本地字体，适合开发环境字体已安装且希望减少截图资源体积的场景。 */
+  readonly localFonts?: boolean
+  /** 跨域资源代理地址，适合图片或字体没有 CORS 但仍希望尽量渲染的场景。 */
+  readonly useProxy?: string
+  /** 排除选择器，适合隐藏 token、密码、调试浮层等不应进入截图的元素。 */
+  readonly exclude?: string[]
+}
+
+/**
+ * snapdom 降级截图配置。
+ *
+ * 该配置把可序列化 options 和函数型扩展分开，适用于 Vite 插件 Node 配置需要驱动浏览器 runtime 的场景。
+ */
+export interface SnapdomScreenshotOptions {
+  /** 直接透传给 snapdom 的 JSON-safe options。 */
+  readonly options?: JsonSafeSnapdomOptions
+  /** 通过 Vite import 路径加载的插件列表，避免跨 runtime 传函数。 */
+  readonly plugins?: SnapdomPluginImport[]
+  /** 函数型 filter 的 Vite import 路径，适合复杂元素过滤逻辑。 */
+  readonly filter?: string
+  /** 函数型 fallbackURL 的 Vite import 路径，适合按资源 URL 定制兜底图。 */
+  readonly fallbackURL?: string
+}
+
+/**
+ * 页面截图配置。
+ *
+ * 截图能力同时存在真截图和 DOM 降级截图；集中配置可以让用户明确选择准确度、体积和兼容性边界。
+ */
+export interface ScreenshotOptions {
+  /** 默认截图通道选择，适合项目按运行环境统一控制降级策略。 */
+  readonly prefer?: ScreenshotPrefer
+  /** 单次 MCP 返回图片最大字节数，避免 base64 图片挤占上下文或拖慢客户端。 */
+  readonly maxBytes?: number
+  /** 无 CDP 时的 snapdom 降级配置。 */
+  readonly snapdom?: SnapdomScreenshotOptions
+}
+
+/**
+ * Runtime 截图请求。
+ *
+ * MCP 服务端无法直接执行浏览器 DOM 截图，必须通过 Vite RPC 把可序列化配置交给页面 runtime。
+ */
+export interface RuntimeScreenshotRequest {
+  /** 并发请求隔离事件名，适用于多个 MCP 调用同时等待浏览器回传。 */
+  readonly event: string
+  /** 截图目标范围，runtime 侧据此选择 document 或 selector 元素。 */
+  readonly target: ScreenshotTarget
+  /** 元素截图选择器，只在 `target: "element"` 时需要。 */
+  readonly selector?: string
+  /** 输出格式，决定 snapdom 生成 Blob 的 mime type。 */
+  readonly format: ScreenshotFormat
+  /** 有损格式质量，适用于控制 jpeg/webp 体积。 */
+  readonly quality?: number
+  /** 单次调用缩放倍率覆盖值，适合临时获取高清局部截图。 */
+  readonly scale?: number
+  /** 已解析 snapdom 配置，函数型扩展仍以 Vite import 路径表达。 */
+  readonly snapdom: Required<
+    Pick<SnapdomScreenshotOptions, 'options' | 'plugins'>
+  > &
+    Omit<SnapdomScreenshotOptions, 'options' | 'plugins'>
+}
+
+/**
+ * Runtime 截图结果。
+ *
+ * snapdom 是降级截图路径，结果必须带上限制说明，避免调用方误判为浏览器真实像素。
+ */
+export interface RuntimeScreenshotResult {
+  /** 是否成功，保持与现有 runtime fallback 错误结构一致。 */
+  readonly ok: boolean
+  /** 图片 base64 数据，不包含 data URL 前缀，适合 MCP 结构化返回。 */
+  readonly data?: string
+  /** 截图宽度，帮助客户端理解图片尺寸和压缩取舍。 */
+  readonly width?: number
+  /** 截图高度，帮助客户端理解图片尺寸和压缩取舍。 */
+  readonly height?: number
+  /** 图片 mime type，用于 MCP 客户端正确解码。 */
+  readonly mimeType?: string
+  /** 原始 Blob 字节数，用于服务端执行 maxBytes 保护。 */
+  readonly byteLength?: number
+  /** DOM 截图已知限制，适合在 AI 回答中解释截图不完整原因。 */
+  readonly limitations?: string[]
+  /** 失败原因，保持浏览器 runtime 错误可读。 */
+  readonly error?: string
+}
+
+/**
  * 解析后的插件配置。
  *
  * 内部模块只读取该类型，避免每个模块重复处理可选配置和默认值。
@@ -183,6 +338,13 @@ export interface ResolvedVueMcpNextOptions {
   readonly dom: Required<DomOptions>
   /** 已补齐默认值的 Console 缓存限制。 */
   readonly console: Required<ConsoleOptions>
+  /** 已补齐默认值的截图配置。 */
+  readonly screenshot: Required<Omit<ScreenshotOptions, 'snapdom'>> & {
+    readonly snapdom: Required<
+      Pick<SnapdomScreenshotOptions, 'options' | 'plugins'>
+    > &
+      Omit<SnapdomScreenshotOptions, 'options' | 'plugins'>
+  }
 }
 
 /**
@@ -357,6 +519,10 @@ export interface VueRuntimeRpc {
   }): void | Promise<void>
   /** 回传页面表达式执行结果。 */
   onEvaluateScriptUpdated(event: string, data: unknown): void
+  /** 通过 snapdom 执行浏览器端 DOM 截图，用于无 CDP 时提供截图降级能力。 */
+  takeScreenshot(options: RuntimeScreenshotRequest): void | Promise<void>
+  /** 回传 snapdom 截图结果，使用事件名隔离并发 MCP 请求。 */
+  onScreenshotTaken(event: string, data: RuntimeScreenshotResult): void
   /** 读取 Vue component inspector tree，用于 `get_component_tree` 工具。 */
   getInspectorTree(options: {
     event: string
