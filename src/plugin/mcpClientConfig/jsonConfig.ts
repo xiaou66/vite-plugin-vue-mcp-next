@@ -11,6 +11,8 @@ export interface UpdateJsonMcpClientConfigOptions {
   readonly mcpUrl: string
   /** 写入 MCP 客户端的服务名，只更新该服务以保护用户已有配置。 */
   readonly serverName: string
+  /** 旧默认服务名列表，只用于迁移历史自动配置，不影响用户自定义服务名。 */
+  readonly legacyServerNames?: readonly string[]
 }
 
 /**
@@ -37,17 +39,53 @@ export async function updateJsonMcpClientConfig(
       return
     }
 
+    const migratedMcpServers = renameLegacyServer(mcpServers, options)
+    if (migratedMcpServers) {
+      config.mcpServers = migratedMcpServers
+      await writeJsonConfig(options.configPath, config)
+      return
+    }
+
     mcpServers[options.serverName] = { type: 'sse', url: options.mcpUrl }
     config.mcpServers = mcpServers
 
-    await fs.mkdir(path.dirname(options.configPath), { recursive: true })
-    await fs.writeFile(
-      options.configPath,
-      `${JSON.stringify(config, null, 2)}\n`
-    )
+    await writeJsonConfig(options.configPath, config)
   } catch (error) {
     warnConfigFailure(options, formatError(error))
   }
+}
+
+/**
+ * 将旧默认服务名改成新默认服务名。
+ *
+ * 只在新名称不存在时迁移，避免新旧配置同时存在时误合并用户手动调整过的两份配置。
+ */
+function renameLegacyServer(
+  mcpServers: Record<string, unknown>,
+  options: UpdateJsonMcpClientConfigOptions
+): Record<string, unknown> | undefined {
+  const legacyServerName = options.legacyServerNames?.find((name) =>
+    Object.hasOwn(mcpServers, name)
+  )
+
+  if (!legacyServerName) {
+    return undefined
+  }
+
+  return Object.fromEntries(
+    Object.entries(mcpServers).map(([serverName, serverConfig]) => [
+      serverName === legacyServerName ? options.serverName : serverName,
+      serverConfig
+    ])
+  )
+}
+
+async function writeJsonConfig(
+  configPath: string,
+  config: Record<string, unknown>
+): Promise<void> {
+  await fs.mkdir(path.dirname(configPath), { recursive: true })
+  await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
 }
 
 async function readJsonConfig(configPath: string): Promise<unknown> {

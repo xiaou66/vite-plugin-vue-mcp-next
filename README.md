@@ -43,7 +43,7 @@ SSE: http://localhost:<vite-port>/__mcp/sse
 Streamable HTTP: http://localhost:<vite-port>/__mcp/mcp
 ```
 
-启动 Vite dev server 后，插件会按项目中已经存在的客户端入口自动写入项目级 MCP 配置，服务名默认是 `vue-mcp-next`。自动配置只会在缺少同名 server 条目时新增配置；如果用户已经配置了 `vue-mcp-next`，插件不会重复写入、覆盖原配置或改写用户自定义字段。
+启动 Vite dev server 后，插件会按项目中已经存在的客户端入口自动写入项目级 MCP 配置，服务名默认是 `vite-mcp-next`。自动配置只会在缺少同名 server 条目时新增配置；如果用户已经配置了历史默认名 `vue-mcp-next`，插件会把它迁移为 `vite-mcp-next` 并保留原配置内容。
 
 默认自动探测规则如下：
 
@@ -67,7 +67,7 @@ Cursor、Claude Code、Trae 等 JSON 配置客户端可以使用：
 ```json
 {
   "mcpServers": {
-    "vue-mcp-next": {
+    "vite-mcp-next": {
       "type": "sse",
       "url": "http://localhost:5173/__mcp/sse"
     }
@@ -78,7 +78,7 @@ Cursor、Claude Code、Trae 等 JSON 配置客户端可以使用：
 Codex 使用 TOML 配置：
 
 ```toml
-[mcp_servers.vue-mcp-next]
+[mcp_servers.vite-mcp-next]
 url = "http://localhost:5173/__mcp/mcp"
 ```
 
@@ -99,7 +99,7 @@ vueMcpNext({
     codex: true,
     claudeCode: true,
     trae: true,
-    serverName: 'vue-mcp-next'
+    serverName: 'vite-mcp-next'
   },
   appendTo: undefined,
   runtime: {

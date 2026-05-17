@@ -6,6 +6,10 @@
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import {
+  DEFAULT_MCP_CLIENT_SERVER_NAME,
+  LEGACY_MCP_CLIENT_SERVER_NAMES
+} from '../../constants'
 import type {
   ResolvedVueMcpNextOptions,
   VueMcpNextOptions
@@ -42,6 +46,12 @@ interface ClientUpdateDecisionOptions {
   readonly userOptions: VueMcpNextOptions
 }
 
+/** 单个 MCP 客户端的配置写入描述，统一承载探测入口和实际写入动作。 */
+interface ClientConfigDescriptor extends ClientUpdateDecisionOptions {
+  /** 通过探测后执行的配置写入任务。 */
+  readonly createJob: () => Promise<void>
+}
+
 /**
  * 更新所有启用的项目级 MCP 客户端配置。
  *
@@ -55,88 +65,100 @@ export async function updateMcpClientConfigs(
   userOptions: VueMcpNextOptions = {}
 ): Promise<void> {
   const serverName = options.serverName
-  const jobs: Promise<void>[] = []
-
-  if (
-    await shouldUpdateClientConfig({
+  const legacyServerNames = getLegacyServerNames(serverName)
+  const descriptors: readonly ClientConfigDescriptor[] = [
+    {
       root,
       clientName: 'cursor',
       enabled: options.cursor,
       entryPath: path.join(root, '.cursor'),
       entryKind: 'directory',
-      userOptions
-    })
-  ) {
-    jobs.push(
-      updateJsonMcpClientConfig({
-        clientName: 'Cursor',
-        configPath: path.join(root, '.cursor', 'mcp.json'),
-        mcpUrl: sseUrl,
-        serverName
-      })
-    )
-  }
-
-  if (
-    await shouldUpdateClientConfig({
+      userOptions,
+      createJob: () =>
+        updateJsonMcpClientConfig({
+          clientName: 'Cursor',
+          configPath: path.join(root, '.cursor', 'mcp.json'),
+          mcpUrl: sseUrl,
+          serverName,
+          legacyServerNames
+        })
+    },
+    {
       root,
       clientName: 'codex',
       enabled: options.codex,
       entryPath: path.join(root, '.codex'),
       entryKind: 'directory',
-      userOptions
-    })
-  ) {
-    jobs.push(
-      updateCodexMcpClientConfig({
-        configPath: path.join(root, '.codex', 'config.toml'),
-        mcpUrl: streamableHttpUrl,
-        serverName
-      })
-    )
-  }
-
-  if (
-    await shouldUpdateClientConfig({
+      userOptions,
+      createJob: () =>
+        updateCodexMcpClientConfig({
+          configPath: path.join(root, '.codex', 'config.toml'),
+          mcpUrl: streamableHttpUrl,
+          serverName,
+          legacyServerNames
+        })
+    },
+    {
       root,
       clientName: 'claudeCode',
       enabled: options.claudeCode,
       entryPath: path.join(root, '.mcp.json'),
       entryKind: 'file',
-      userOptions
-    })
-  ) {
-    jobs.push(
-      updateJsonMcpClientConfig({
-        clientName: 'Claude Code',
-        configPath: path.join(root, '.mcp.json'),
-        mcpUrl: sseUrl,
-        serverName
-      })
-    )
-  }
-
-  if (
-    await shouldUpdateClientConfig({
+      userOptions,
+      createJob: () =>
+        updateJsonMcpClientConfig({
+          clientName: 'Claude Code',
+          configPath: path.join(root, '.mcp.json'),
+          mcpUrl: sseUrl,
+          serverName,
+          legacyServerNames
+        })
+    },
+    {
       root,
       clientName: 'trae',
       enabled: options.trae,
       entryPath: path.join(root, '.trae'),
       entryKind: 'directory',
-      userOptions
-    })
-  ) {
-    jobs.push(
-      updateJsonMcpClientConfig({
-        clientName: 'Trae',
-        configPath: path.join(root, '.trae', 'mcp.json'),
-        mcpUrl: sseUrl,
-        serverName
-      })
-    )
+      userOptions,
+      createJob: () =>
+        updateJsonMcpClientConfig({
+          clientName: 'Trae',
+          configPath: path.join(root, '.trae', 'mcp.json'),
+          mcpUrl: sseUrl,
+          serverName,
+          legacyServerNames
+        })
+    }
+  ]
+
+  const jobs = await createClientConfigJobs(descriptors)
+  await Promise.all(jobs)
+}
+
+async function createClientConfigJobs(
+  descriptors: readonly ClientConfigDescriptor[]
+): Promise<Promise<void>[]> {
+  const jobs: Promise<void>[] = []
+
+  for (const descriptor of descriptors) {
+    if (await shouldUpdateClientConfig(descriptor)) {
+      jobs.push(descriptor.createJob())
+    }
   }
 
-  await Promise.all(jobs)
+  return jobs
+}
+
+/**
+ * 只有默认服务名使用旧名迁移。
+ *
+ * 用户显式配置自定义 `serverName` 时应按自定义名创建，不能被历史默认名阻断。
+ */
+function getLegacyServerNames(serverName: string): readonly string[] {
+  return serverName === DEFAULT_MCP_CLIENT_SERVER_NAME
+    ? LEGACY_MCP_CLIENT_SERVER_NAMES
+    : []
 }
 
 /**

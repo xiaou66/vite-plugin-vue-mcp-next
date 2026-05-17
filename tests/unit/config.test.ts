@@ -10,7 +10,7 @@ describe('runtime DevTools options', () => {
     expect(options.printUrl).toBe(true)
     expect(options.updateCursorMcpJson).toEqual({
       enabled: true,
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
     expect(options.runtime.mode).toBe('auto')
     expect(options.runtime.evaluate.enabled).toBe(false)
@@ -43,7 +43,7 @@ describe('runtime DevTools options', () => {
       codex: true,
       claudeCode: true,
       trae: true,
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
   })
 

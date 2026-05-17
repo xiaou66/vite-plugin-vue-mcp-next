@@ -64,8 +64,11 @@ export const VIRTUAL_SNAPDOM_LOADER_ID =
 /** Vite 内部解析 snapdom loader 时使用空字节前缀，避免与真实文件冲突。 */
 export const RESOLVED_VIRTUAL_SNAPDOM_LOADER_ID = `\0${VIRTUAL_SNAPDOM_LOADER_ID}`
 
-/** 默认 MCP 客户端服务名，集中定义可以让旧 Cursor 配置和新多客户端配置保持一致。 */
-const DEFAULT_MCP_CLIENT_SERVER_NAME = 'vue-mcp-next'
+/** 默认 MCP 客户端服务名，采用 Vite 维度命名以匹配插件能力边界。 */
+export const DEFAULT_MCP_CLIENT_SERVER_NAME = 'vite-mcp-next'
+
+/** 旧默认服务名只用于迁移已有配置，避免用户项目里同时出现新旧两份 MCP 配置。 */
+export const LEGACY_MCP_CLIENT_SERVER_NAMES = ['vue-mcp-next'] as const
 
 /** Runtime 页面重连事件名，供 reload_page 等待页面刷新后重新接入。 */
 export const RUNTIME_PAGE_RECONNECTED_EVENT =

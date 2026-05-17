@@ -27,13 +27,13 @@ describe('JSON MCP client config writer', () => {
       clientName: 'Cursor',
       configPath,
       mcpUrl: 'http://localhost:5173/__mcp/sse',
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
 
     const raw = await fs.readFile(configPath, 'utf-8')
     expect(JSON.parse(raw)).toEqual({
       mcpServers: {
-        'vue-mcp-next': {
+        'vite-mcp-next': {
           type: 'sse',
           url: 'http://localhost:5173/__mcp/sse'
         }
@@ -64,7 +64,7 @@ describe('JSON MCP client config writer', () => {
       clientName: 'Trae',
       configPath,
       mcpUrl: 'http://localhost:5173/__mcp/sse',
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
 
     const raw = await fs.readFile(configPath, 'utf-8')
@@ -74,7 +74,7 @@ describe('JSON MCP client config writer', () => {
         existing: {
           url: 'https://example.com/mcp'
         },
-        'vue-mcp-next': {
+        'vite-mcp-next': {
           type: 'sse',
           url: 'http://localhost:5173/__mcp/sse'
         }
@@ -90,7 +90,7 @@ describe('JSON MCP client config writer', () => {
       JSON.stringify(
         {
           mcpServers: {
-            'vue-mcp-next': {
+            'vite-mcp-next': {
               type: 'sse',
               url: 'http://localhost:4100/__mcp/sse'
             }
@@ -105,7 +105,93 @@ describe('JSON MCP client config writer', () => {
       clientName: 'Cursor',
       configPath,
       mcpUrl: 'http://localhost:5173/__mcp/sse',
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
+    })
+
+    const raw = await fs.readFile(configPath, 'utf-8')
+    expect(JSON.parse(raw)).toEqual({
+      mcpServers: {
+        'vite-mcp-next': {
+          type: 'sse',
+          url: 'http://localhost:4100/__mcp/sse'
+        }
+      }
+    })
+  })
+
+  it('renames a legacy JSON MCP server to the default server name', async () => {
+    const configPath = path.join(tempRoot, '.mcp.json')
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(
+        {
+          keep: true,
+          mcpServers: {
+            'vue-mcp-next': {
+              type: 'sse',
+              url: 'http://localhost:4100/__mcp/sse',
+              env: {
+                KEEP: 'true'
+              }
+            }
+          }
+        },
+        null,
+        2
+      )
+    )
+
+    await updateJsonMcpClientConfig({
+      clientName: 'Claude Code',
+      configPath,
+      mcpUrl: 'http://localhost:5173/__mcp/sse',
+      serverName: 'vite-mcp-next',
+      legacyServerNames: ['vue-mcp-next']
+    })
+
+    const raw = await fs.readFile(configPath, 'utf-8')
+    expect(JSON.parse(raw)).toEqual({
+      keep: true,
+      mcpServers: {
+        'vite-mcp-next': {
+          type: 'sse',
+          url: 'http://localhost:4100/__mcp/sse',
+          env: {
+            KEEP: 'true'
+          }
+        }
+      }
+    })
+  })
+
+  it('does not migrate legacy JSON MCP server when the new name already exists', async () => {
+    const configPath = path.join(tempRoot, '.mcp.json')
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(
+        {
+          mcpServers: {
+            'vue-mcp-next': {
+              type: 'sse',
+              url: 'http://localhost:4100/__mcp/sse'
+            },
+            'vite-mcp-next': {
+              type: 'sse',
+              url: 'http://localhost:5173/__mcp/sse'
+            }
+          }
+        },
+        null,
+        2
+      )
+    )
+
+    await updateJsonMcpClientConfig({
+      clientName: 'Claude Code',
+      configPath,
+      mcpUrl: 'http://localhost:9999/__mcp/sse',
+      serverName: 'vite-mcp-next',
+      legacyServerNames: ['vue-mcp-next']
     })
 
     const raw = await fs.readFile(configPath, 'utf-8')
@@ -114,6 +200,10 @@ describe('JSON MCP client config writer', () => {
         'vue-mcp-next': {
           type: 'sse',
           url: 'http://localhost:4100/__mcp/sse'
+        },
+        'vite-mcp-next': {
+          type: 'sse',
+          url: 'http://localhost:5173/__mcp/sse'
         }
       }
     })
@@ -128,7 +218,7 @@ describe('JSON MCP client config writer', () => {
       clientName: 'Claude Code',
       configPath,
       mcpUrl: 'http://localhost:5173/__mcp/sse',
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
@@ -149,11 +239,11 @@ describe('Codex MCP client config writer', () => {
     await updateCodexMcpClientConfig({
       configPath,
       mcpUrl: 'http://localhost:5173/__mcp/mcp',
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
+      '[mcp_servers.vite-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
     )
   })
 
@@ -168,15 +258,15 @@ describe('Codex MCP client config writer', () => {
     await updateCodexMcpClientConfig({
       configPath,
       mcpUrl: 'http://localhost:5173/__mcp/mcp',
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      'model = "gpt-5.5"\n\n[mcp_servers.existing]\nurl = "https://example.com/mcp"\n\n[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
+      'model = "gpt-5.5"\n\n[mcp_servers.existing]\nurl = "https://example.com/mcp"\n\n[mcp_servers.vite-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
     )
   })
 
-  it('keeps an existing Codex server block unchanged', async () => {
+  it('appends new Codex server when legacy name is not configured for migration', async () => {
     const configPath = path.join(tempRoot, '.codex', 'config.toml')
     await fs.mkdir(path.dirname(configPath), { recursive: true })
     await fs.writeFile(
@@ -187,11 +277,51 @@ describe('Codex MCP client config writer', () => {
     await updateCodexMcpClientConfig({
       configPath,
       mcpUrl: 'http://localhost:5173/__mcp/mcp',
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:3000/old/sse"\n\n[mcp_servers.other]\nurl = "https://example.com/mcp"\n'
+      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:3000/old/sse"\n\n[mcp_servers.other]\nurl = "https://example.com/mcp"\n\n[mcp_servers.vite-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
+    )
+  })
+
+  it('renames a legacy Codex MCP server and child tables to the default server name', async () => {
+    const configPath = path.join(tempRoot, '.codex', 'config.toml')
+    await fs.mkdir(path.dirname(configPath), { recursive: true })
+    await fs.writeFile(
+      configPath,
+      'model = "gpt-5.5"\n\n[mcp_servers.vue-mcp-next]\nurl = "http://localhost:4100/__mcp/mcp"\n\n[mcp_servers.vue-mcp-next.env]\nKEEP = "true"\n'
+    )
+
+    await updateCodexMcpClientConfig({
+      configPath,
+      mcpUrl: 'http://localhost:5173/__mcp/mcp',
+      serverName: 'vite-mcp-next',
+      legacyServerNames: ['vue-mcp-next']
+    })
+
+    await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
+      'model = "gpt-5.5"\n\n[mcp_servers.vite-mcp-next]\nurl = "http://localhost:4100/__mcp/mcp"\n\n[mcp_servers.vite-mcp-next.env]\nKEEP = "true"\n'
+    )
+  })
+
+  it('does not migrate legacy Codex MCP server when the new name already exists', async () => {
+    const configPath = path.join(tempRoot, '.codex', 'config.toml')
+    await fs.mkdir(path.dirname(configPath), { recursive: true })
+    await fs.writeFile(
+      configPath,
+      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:4100/__mcp/mcp"\n\n[mcp_servers.vite-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
+    )
+
+    await updateCodexMcpClientConfig({
+      configPath,
+      mcpUrl: 'http://localhost:9999/__mcp/mcp',
+      serverName: 'vite-mcp-next',
+      legacyServerNames: ['vue-mcp-next']
+    })
+
+    await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
+      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:4100/__mcp/mcp"\n\n[mcp_servers.vite-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
     )
   })
 
@@ -206,11 +336,11 @@ describe('Codex MCP client config writer', () => {
     await updateCodexMcpClientConfig({
       configPath,
       mcpUrl: 'http://localhost:5173/__mcp/mcp',
-      serverName: 'vue-mcp-next'
+      serverName: 'vite-mcp-next'
     })
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      '[mcp_servers.apifox-filter.env]\nAPIFOX_ACCESS_TOKEN = "redacted"\n\n[mcp_servers.vue-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
+      '[mcp_servers.apifox-filter.env]\nAPIFOX_ACCESS_TOKEN = "redacted"\n\n[mcp_servers.vite-mcp-next]\nurl = "http://localhost:5173/__mcp/mcp"\n'
     )
   })
 
@@ -240,7 +370,7 @@ describe('MCP client config orchestration', () => {
         codex: true,
         claudeCode: true,
         trae: true,
-        serverName: 'vue-mcp-next'
+        serverName: 'vite-mcp-next'
       },
       {}
     )
@@ -271,7 +401,7 @@ describe('MCP client config orchestration', () => {
         codex: true,
         claudeCode: true,
         trae: true,
-        serverName: 'vue-mcp-next'
+        serverName: 'vite-mcp-next'
       },
       {}
     )
@@ -281,7 +411,7 @@ describe('MCP client config orchestration', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(
       fs.readFile(path.join(tempRoot, '.codex', 'config.toml'), 'utf-8')
-    ).resolves.toContain('[mcp_servers.vue-mcp-next]')
+    ).resolves.toContain('[mcp_servers.vite-mcp-next]')
     await expect(
       fs.access(path.join(tempRoot, '.mcp.json'))
     ).rejects.toMatchObject({ code: 'ENOENT' })
@@ -302,7 +432,7 @@ describe('MCP client config orchestration', () => {
         codex: true,
         claudeCode: true,
         trae: true,
-        serverName: 'vue-mcp-next'
+        serverName: 'vite-mcp-next'
       },
       {}
     )
@@ -310,7 +440,7 @@ describe('MCP client config orchestration', () => {
     const raw = await fs.readFile(path.join(tempRoot, '.mcp.json'), 'utf-8')
     expect(JSON.parse(raw)).toEqual({
       mcpServers: {
-        'vue-mcp-next': {
+        'vite-mcp-next': {
           type: 'sse',
           url: 'http://localhost:5173/__mcp/sse'
         }
@@ -331,7 +461,7 @@ describe('MCP client config orchestration', () => {
         codex: true,
         claudeCode: true,
         trae: true,
-        serverName: 'vue-mcp-next'
+        serverName: 'vite-mcp-next'
       },
       {
         mcpClients: {
@@ -342,7 +472,7 @@ describe('MCP client config orchestration', () => {
 
     await expect(
       fs.readFile(path.join(tempRoot, '.codex', 'config.toml'), 'utf-8')
-    ).resolves.toContain('[mcp_servers.vue-mcp-next]')
+    ).resolves.toContain('[mcp_servers.vite-mcp-next]')
     await expect(
       fs.access(path.join(tempRoot, '.cursor', 'mcp.json'))
     ).rejects.toMatchObject({ code: 'ENOENT' })
@@ -360,7 +490,7 @@ describe('MCP client config orchestration', () => {
         codex: false,
         claudeCode: true,
         trae: true,
-        serverName: 'vue-mcp-next'
+        serverName: 'vite-mcp-next'
       },
       {
         mcpClients: {
@@ -374,7 +504,7 @@ describe('MCP client config orchestration', () => {
     ).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('keeps an existing detected JSON MCP server unchanged', async () => {
+  it('migrates an existing detected JSON MCP server from the legacy default name', async () => {
     const configPath = path.join(tempRoot, '.mcp.json')
     await fs.writeFile(
       configPath,
@@ -404,16 +534,16 @@ describe('MCP client config orchestration', () => {
         codex: true,
         claudeCode: true,
         trae: true,
-        serverName: 'vue-mcp-next'
+        serverName: 'vite-mcp-next'
       },
       {}
     )
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      JSON.stringify(
+      `${JSON.stringify(
         {
           mcpServers: {
-            'vue-mcp-next': {
+            'vite-mcp-next': {
               type: 'sse',
               url: 'http://localhost:4100/__mcp/sse',
               env: {
@@ -424,11 +554,11 @@ describe('MCP client config orchestration', () => {
         },
         null,
         2
-      )
+      )}\n`
     )
   })
 
-  it('keeps an existing detected Codex MCP server unchanged', async () => {
+  it('migrates an existing detected Codex MCP server from the legacy default name', async () => {
     const configPath = path.join(tempRoot, '.codex', 'config.toml')
     await fs.mkdir(path.dirname(configPath), { recursive: true })
     await fs.writeFile(
@@ -445,13 +575,13 @@ describe('MCP client config orchestration', () => {
         codex: true,
         claudeCode: true,
         trae: true,
-        serverName: 'vue-mcp-next'
+        serverName: 'vite-mcp-next'
       },
       {}
     )
 
     await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
-      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:4100/__mcp/mcp"\n[mcp_servers.vue-mcp-next.env]\nKEEP = "true"\n'
+      '[mcp_servers.vite-mcp-next]\nurl = "http://localhost:4100/__mcp/mcp"\n[mcp_servers.vite-mcp-next.env]\nKEEP = "true"\n'
     )
   })
 })
