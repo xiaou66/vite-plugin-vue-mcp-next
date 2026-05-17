@@ -18,6 +18,10 @@ export function createServerVueRuntimeRpc(
     onDomQueryUpdated: (event, data) => {
       void ctx.hooks.callHook(event, data)
     },
+    reloadPage: () => undefined,
+    onPageReloaded: (event, data) => {
+      void ctx.hooks.callHook(event, data)
+    },
     evaluateScript: () => undefined,
     onEvaluateScriptUpdated: (event, data) => {
       void ctx.hooks.callHook(event, data)

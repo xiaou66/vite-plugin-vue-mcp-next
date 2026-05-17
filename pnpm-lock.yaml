@@ -19,9 +19,6 @@ importers:
       '@vue/devtools-kit':
         specifier: ^8.1.2
         version: 8.1.2
-      '@zumer/snapdom':
-        specifier: ^2.12.0
-        version: 2.12.0
       chrome-remote-interface:
         specifier: ^0.34.0
         version: 0.34.0
@@ -62,6 +59,9 @@ importers:
       '@vitejs/plugin-vue':
         specifier: ^6.0.7
         version: 6.0.7(vite@8.0.13(@types/node@25.8.0)(esbuild@0.27.7)(yaml@2.9.0))(vue@3.5.34(typescript@6.0.3))
+      '@zumer/snapdom':
+        specifier: ^2.12.0
+        version: 2.12.0
       eslint:
         specifier: ^10.4.0
         version: 10.4.0

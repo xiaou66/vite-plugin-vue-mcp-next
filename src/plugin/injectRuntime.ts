@@ -1,7 +1,11 @@
+import { createRequire } from 'node:module'
+import { join } from 'node:path'
 import type { IndexHtmlTransformResult, ResolvedConfig } from 'vite'
 import {
+  RESOLVED_VIRTUAL_SNAPDOM_LOADER_ID,
   RESOLVED_VIRTUAL_RUNTIME_ID,
   RESOLVED_VIRTUAL_SCREENSHOT_CONFIG_ID,
+  VIRTUAL_SNAPDOM_LOADER_ID,
   VIRTUAL_RUNTIME_ID,
   VIRTUAL_SCREENSHOT_CONFIG_ID
 } from '../constants'
@@ -44,15 +48,23 @@ export function createRuntimeInjectionController(
         return RESOLVED_VIRTUAL_SCREENSHOT_CONFIG_ID
       }
 
+      if (importee === VIRTUAL_SNAPDOM_LOADER_ID) {
+        return RESOLVED_VIRTUAL_SNAPDOM_LOADER_ID
+      }
+
       return undefined
     },
     load(id) {
       if (id === RESOLVED_VIRTUAL_RUNTIME_ID) {
-        return "import { startRuntimeClient } from '@xiaou66/vite-plugin-vue-mcp-next/runtime/client';\nvoid startRuntimeClient();"
+        return createRuntimeModule()
       }
 
       if (id === RESOLVED_VIRTUAL_SCREENSHOT_CONFIG_ID) {
         return createScreenshotConfigModule(options)
+      }
+
+      if (id === RESOLVED_VIRTUAL_SNAPDOM_LOADER_ID) {
+        return createSnapdomLoaderModule(getConfig()?.root)
       }
 
       return undefined
@@ -96,6 +108,68 @@ export function createRuntimeInjectionController(
       return `import '${VIRTUAL_RUNTIME_ID}';\n${code}`
     }
   }
+}
+
+/**
+ * 生成浏览器 runtime 入口模块。
+ *
+ * screenshot 配置必须在 Vite 虚拟模块里解析，但发布包 runtime 不能直接 import 虚拟模块；
+ * 因此由这个宿主项目内的虚拟入口完成注册，再启动通用 runtime client。
+ */
+function createRuntimeModule(): string {
+  return [
+    "import { setScreenshotModuleRegistry, setSnapdomLoader, startRuntimeClient } from '@xiaou66/vite-plugin-vue-mcp-next/runtime/client';",
+    `import { screenshotModuleRegistry } from '${VIRTUAL_SCREENSHOT_CONFIG_ID}';`,
+    `import { loadSnapdom } from '${VIRTUAL_SNAPDOM_LOADER_ID}';`,
+    'setScreenshotModuleRegistry(screenshotModuleRegistry);',
+    'setSnapdomLoader(loadSnapdom);',
+    'void startRuntimeClient();'
+  ].join('\n')
+}
+
+/**
+ * 生成 snapdom loader 虚拟模块。
+ *
+ * optional peer 只能在宿主项目里解析；失败时也要导出 loader，让 runtime 可以把错误返回给 MCP。
+ */
+function createSnapdomLoaderModule(root?: string): string {
+  if (!canResolveSnapdomFromProject(root)) {
+    return [
+      'export const loadSnapdom = () =>',
+      `  Promise.reject(new Error(${JSON.stringify(createMissingSnapdomMessage())}));`
+    ].join('\n')
+  }
+
+  return [
+    "import { snapdom } from '@zumer/snapdom';",
+    'export const loadSnapdom = () => Promise.resolve({ snapdom });'
+  ].join('\n')
+}
+
+/**
+ * 判断宿主项目是否安装 snapdom。
+ *
+ * 使用项目根目录创建 require 可以模拟 Vite 对 peer dependency 的解析边界，避免误用本插件自身依赖。
+ */
+function canResolveSnapdomFromProject(root?: string): boolean {
+  try {
+    createRequire(join(root ?? process.cwd(), 'package.json')).resolve(
+      '@zumer/snapdom'
+    )
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 创建缺失 snapdom 的提示。
+ *
+ * 统一文案可以让虚拟模块和 runtime 默认错误保持一致，便于 MCP 客户端直接展示修复命令。
+ */
+function createMissingSnapdomMessage(): string {
+  return '缺少可选依赖 @zumer/snapdom。DOM 截图降级需要该依赖，请执行：pnpm add -D @zumer/snapdom'
 }
 
 /**

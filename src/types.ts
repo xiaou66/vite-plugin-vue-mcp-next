@@ -177,6 +177,9 @@ export type ScreenshotTarget = 'viewport' | 'fullPage' | 'element'
  */
 export type ScreenshotFormat = 'png' | 'jpeg' | 'webp'
 
+/** 截图输出类型，项目级配置用于统一控制 MCP 返回路径还是直接返回图片数据。 */
+export type ScreenshotOutputType = 'path' | 'base64'
+
 /**
  * snapdom 插件路径对象。
  *
@@ -251,6 +254,10 @@ export interface SnapdomScreenshotOptions {
  * 截图能力同时存在真截图和 DOM 降级截图；集中配置可以让用户明确选择准确度、体积和兼容性边界。
  */
 export interface ScreenshotOptions {
+  /** 截图输出类型，项目级 MCP 默认用路径减少 base64 对上下文的占用。 */
+  readonly type?: ScreenshotOutputType
+  /** 截图保存目录，相对路径按 Vite 项目根目录解析。 */
+  readonly saveDir?: string
   /** 默认截图通道选择，适合项目按运行环境统一控制降级策略。 */
   readonly prefer?: ScreenshotPrefer
   /** 单次 MCP 返回图片最大字节数，避免 base64 图片挤占上下文或拖慢客户端。 */
@@ -458,8 +465,8 @@ export interface PageTargetRegistry {
 export interface VueMcpNextContext {
   /** 解析后的安全配置，所有内部模块只能读取该配置，不能再次直接读取用户原始配置。 */
   readonly options: ResolvedVueMcpNextOptions
-  /** 当前 Vite 开发服务器实例，只有 serve 模式下 MCP 路由和 runtime 注入才需要它。 */
-  readonly server?: ViteDevServer
+  /** 当前 Vite 开发服务器实例，configureServer 阶段自动写入，供需要项目根目录的服务端工具复用。 */
+  server?: ViteDevServer
   /** 跨 RPC 请求的事件总线，用于复用参考项目的事件回传模型。 */
   readonly hooks: Hookable
   /** Vue Runtime Bridge 的服务端 RPC 代理，Vue 专属工具通过它请求浏览器页面返回组件语义数据。 */
@@ -510,6 +517,10 @@ export interface VueRuntimeRpc {
   }): void | Promise<void>
   /** 回传 selector 查询结果。 */
   onDomQueryUpdated(event: string, data: unknown): void
+  /** 触发页面刷新，用于测试前消除上一轮运行状态对页面初始化的影响。 */
+  reloadPage(options: { event: string }): void | Promise<void>
+  /** 回传页面刷新触发结果；Runtime 路径只能普通刷新，不能承诺绕过 HTTP 缓存。 */
+  onPageReloaded(event: string, data: unknown): void
   /** 执行已授权的页面表达式，用于无 CDP 配置时提供控制台测试能力。 */
   evaluateScript(options: {
     event: string

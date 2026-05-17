@@ -18,3 +18,4 @@ out
 .pnpm-store/*
 _*
 /.sanshu-memory
+.serena

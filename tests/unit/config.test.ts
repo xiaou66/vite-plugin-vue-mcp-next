@@ -51,6 +51,8 @@ describe('runtime DevTools options', () => {
     const options = mergeOptions()
 
     expect(options.screenshot).toEqual({
+      type: 'path',
+      saveDir: '.vite-mcp/screenshot',
       prefer: 'auto',
       maxBytes: 5 * 1024 * 1024,
       snapdom: {
@@ -97,6 +99,23 @@ describe('runtime DevTools options', () => {
     expect(options.screenshot.snapdom.fallbackURL).toBe(
       '/src/screenshot/fallback-url.ts'
     )
+  })
+
+  it('keeps screenshot output mode as project-level configuration', () => {
+    const options = mergeOptions({
+      screenshot: {
+        type: 'base64',
+        saveDir: 'custom-screenshots'
+      }
+    })
+
+    expect(options.screenshot.type).toBe('base64')
+    expect(options.screenshot.saveDir).toBe('custom-screenshots')
+    expect(options.screenshot.prefer).toBe('auto')
+    expect(options.screenshot.snapdom).toEqual({
+      options: {},
+      plugins: []
+    })
   })
 
   it('maps legacy cursor config into MCP client config', () => {

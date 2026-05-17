@@ -1,6 +1,6 @@
 import type { Plugin, ResolvedConfig } from 'vite'
 import { searchForWorkspaceRoot } from 'vite'
-import { mergeOptions } from '../constants'
+import { mergeOptions, RUNTIME_PAGE_RECONNECTED_EVENT } from '../constants'
 import { createVueMcpNextContext } from '../context'
 import { createMcpServer } from '../mcp/createMcpServer'
 import { setupMcpTransport } from '../mcp/transport'
@@ -41,6 +41,7 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
       config = resolvedConfig
     },
     async configureServer(server) {
+      ctx.server = server
       ctx.rpcServer = createRPCServer(
         'vite-plugin-vue-mcp-next',
         server.ws,
@@ -59,6 +60,7 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
         (payload: unknown) => {
           if (isRuntimePageTarget(payload)) {
             ctx.pages.upsert(payload)
+            void ctx.hooks.callHook(RUNTIME_PAGE_RECONNECTED_EVENT, payload)
             void cdpLifecycle.connectPage(payload)
           }
         }

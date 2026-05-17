@@ -19,10 +19,13 @@ export const DEFAULT_MCP_PATH = '/__mcp'
 /** 默认截图最大响应体积，避免 base64 图片挤占 MCP 客户端上下文。 */
 export const DEFAULT_SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024
 
+/** 默认截图保存目录，项目级 MCP 使用项目内目录方便用户复查截图文件。 */
+export const DEFAULT_SCREENSHOT_SAVE_DIR = '.vite-mcp/screenshot'
+
 /** MCP 工具名集中管理，避免工具注册和测试中出现拼写漂移。 */
 export const MCP_TOOL_NAMES = {
   listPages: 'list_pages',
-  getPageState: 'get_page_state',
+  reloadPage: 'reload_page',
   getDomTree: 'get_dom_tree',
   queryDom: 'query_dom',
   takeScreenshot: 'take_screenshot',
@@ -54,8 +57,19 @@ export const VIRTUAL_SCREENSHOT_CONFIG_ID =
 /** Vite 内部解析截图配置虚拟模块时使用空字节前缀，避免与真实文件冲突。 */
 export const RESOLVED_VIRTUAL_SCREENSHOT_CONFIG_ID = `\0${VIRTUAL_SCREENSHOT_CONFIG_ID}`
 
+/** snapdom loader 虚拟模块 ID，用于把 optional peer 解析限制在宿主 Vite 模块图里。 */
+export const VIRTUAL_SNAPDOM_LOADER_ID =
+  'virtual:vite-plugin-vue-mcp-next/snapdom-loader'
+
+/** Vite 内部解析 snapdom loader 时使用空字节前缀，避免与真实文件冲突。 */
+export const RESOLVED_VIRTUAL_SNAPDOM_LOADER_ID = `\0${VIRTUAL_SNAPDOM_LOADER_ID}`
+
 /** 默认 MCP 客户端服务名，集中定义可以让旧 Cursor 配置和新多客户端配置保持一致。 */
 const DEFAULT_MCP_CLIENT_SERVER_NAME = 'vue-mcp-next'
+
+/** Runtime 页面重连事件名，供 reload_page 等待页面刷新后重新接入。 */
+export const RUNTIME_PAGE_RECONNECTED_EVENT =
+  'vite-plugin-vue-mcp-next:page-reconnected'
 
 /** 安全默认值，优先保证调试工具不会默认暴露危险能力。 */
 export const DEFAULT_OPTIONS: ResolvedVueMcpNextOptions = {
@@ -98,6 +112,8 @@ export const DEFAULT_OPTIONS: ResolvedVueMcpNextOptions = {
     maxRecords: DEFAULT_CONSOLE_MAX_RECORDS
   },
   screenshot: {
+    type: 'path',
+    saveDir: DEFAULT_SCREENSHOT_SAVE_DIR,
     prefer: 'auto',
     maxBytes: DEFAULT_SCREENSHOT_MAX_BYTES,
     snapdom: {
@@ -187,10 +203,9 @@ export function mergeOptions(
           ...DEFAULT_OPTIONS.screenshot.snapdom.options,
           ...options.screenshot?.snapdom?.options
         },
-        plugins:
-          options.screenshot?.snapdom?.plugins ?? [
-            ...DEFAULT_OPTIONS.screenshot.snapdom.plugins
-          ]
+        plugins: options.screenshot?.snapdom?.plugins ?? [
+          ...DEFAULT_OPTIONS.screenshot.snapdom.plugins
+        ]
       }
     }
   }

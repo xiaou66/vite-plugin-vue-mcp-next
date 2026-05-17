@@ -22,3 +22,20 @@ declare module 'virtual:vite-plugin-vue-mcp-next/screenshot-config' {
     Record<string, unknown>
   >
 }
+
+/**
+ * snapdom loader 虚拟模块声明。
+ *
+ * optional peer 只能在宿主项目的 Vite 模块图里解析，因此 runtime 通过该模块取得可失败的加载器。
+ */
+declare module 'virtual:vite-plugin-vue-mcp-next/snapdom-loader' {
+  /** 加载 snapdom 的函数，缺失 optional peer 时会拒绝并返回可给 MCP 展示的错误。 */
+  export const loadSnapdom: () => Promise<{
+    snapdom: (
+      element: Element,
+      options: Record<string, unknown>
+    ) => Promise<{
+      toBlob: (options?: Record<string, unknown>) => Promise<Blob>
+    }>
+  }>
+}

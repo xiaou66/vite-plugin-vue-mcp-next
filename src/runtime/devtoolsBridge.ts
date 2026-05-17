@@ -17,6 +17,8 @@ export function createRuntimeDevtoolsRpc(
   | 'onDomTreeUpdated'
   | 'queryDom'
   | 'onDomQueryUpdated'
+  | 'reloadPage'
+  | 'onPageReloaded'
   | 'evaluateScript'
   | 'onEvaluateScriptUpdated'
   | 'takeScreenshot'
@@ -41,6 +43,13 @@ export function createRuntimeDevtoolsRpc(
       )
     },
     onDomQueryUpdated: () => undefined,
+    reloadPage(options) {
+      getRpc().onPageReloaded(options.event, { ok: true, source: 'hook' })
+      setTimeout(() => {
+        window.location.reload()
+      }, 0)
+    },
+    onPageReloaded: () => undefined,
     async evaluateScript(options) {
       try {
         getRpc().onEvaluateScriptUpdated(options.event, {

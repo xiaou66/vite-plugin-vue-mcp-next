@@ -1,10 +1,18 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { z } from 'zod'
 import type { ViteDevServer } from 'vite'
 import { createCdpClient } from '../../cdp/cdpClient'
-import { MCP_TOOL_NAMES } from '../../constants'
+import { MCP_TOOL_NAMES, RUNTIME_PAGE_RECONNECTED_EVENT } from '../../constants'
 import { discoverHtmlEntries } from '../../plugin/entryDiscovery'
 import type { PageTarget, VueMcpNextContext } from '../../types'
-import { createToolResponse } from '../routeTools'
+import {
+  closeCdpClient,
+  connectCdpForPage,
+  createToolError,
+  createToolResponse,
+  requestRuntimeData,
+  resolvePageTarget
+} from '../routeTools'
 
 /**
  * 注册页面目标相关 MCP 工具。
@@ -36,6 +44,198 @@ export function registerPageTools(
       })
     }
   )
+
+  server.registerTool(
+    MCP_TOOL_NAMES.reloadPage,
+    {
+      description:
+        'Reload the selected page. CDP uses ignoreCache; Runtime Hook falls back to normal reload.',
+      inputSchema: {
+        pageId: z.string().optional(),
+        ignoreCache: z.boolean().optional()
+      }
+    },
+    async (input) => {
+      if (hasCdpConfig(ctx)) {
+        return reloadPageWithCdp(ctx, input.pageId, input.ignoreCache ?? true)
+      }
+
+      const target = resolveRuntimeReloadTarget(ctx, input.pageId)
+
+      if (!target.ok) {
+        return createToolError(target.error)
+      }
+
+      const reconnect = waitForRuntimePageReconnect(ctx)
+      ctx.pages.disconnect(target.page.pageId)
+
+      const result = await requestRuntimeData(ctx, (event) => {
+        void ctx.rpcServer?.reloadPage({ event })
+      })
+
+      if (!isRecord(result) || result.ok === false) {
+        reconnect.cancel()
+
+        return createToolResponse(
+          isRecord(result)
+            ? result
+            : { ok: false, error: 'Invalid runtime reload response' }
+        )
+      }
+
+      const page = await reconnect.promise
+
+      return createToolResponse(
+        page
+          ? { ...result, reconnected: true, pageId: page.pageId, page }
+          : {
+              ...result,
+              reconnected: false,
+              error: 'runtime page reconnect timed out'
+            }
+      )
+    }
+  )
+}
+
+/**
+ * 判断是否应进入 CDP 刷新路径。
+ *
+ * 刷新工具的语义和 DOM/Evaluate 不同：只要用户显式配置了 CDP，就应该使用浏览器协议的
+ * `ignoreCache` 能力；未配置时才退回 Runtime Hook 普通刷新。
+ */
+function hasCdpConfig(ctx: VueMcpNextContext): boolean {
+  return Boolean(ctx.options.cdp.browserUrl || ctx.options.cdp.wsEndpoint)
+}
+
+/**
+ * 校验 Runtime RPC 回包是否可作为 MCP structuredContent。
+ *
+ * Runtime 通道来自浏览器页面，服务端需要把未知值收窄为对象，避免 MCP SDK 的结构化响应类型
+ * 接收到数组或原始值。
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * 解析 Runtime 刷新的目标页面。
+ *
+ * Runtime reload 会让旧 bridge 失效，因此刷新前必须先定位并标记旧 pageId，
+ * 避免 `list_pages` 在新页面连接后同时保留两个可用目标。
+ */
+function resolveRuntimeReloadTarget(
+  ctx: VueMcpNextContext,
+  pageId?: string
+): { ok: true; page: PageTarget } | { ok: false; error: string } {
+  try {
+    const page = resolvePageTarget(ctx, pageId)
+
+    if (page.source !== 'runtime') {
+      return {
+        ok: false,
+        error: 'Runtime reload requires a runtime page target'
+      }
+    }
+
+    return { ok: true, page }
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+/**
+ * 等待刷新后的 Runtime 页面重新接入。
+ *
+ * 该等待只用于确认页面 bridge 已经重新建立；超时返回 null，让调用方可以把“已触发但未确认”
+ * 明确暴露给 MCP 客户端，而不是无限挂起。
+ */
+function waitForRuntimePageReconnect(ctx: VueMcpNextContext): {
+  readonly promise: Promise<PageTarget | null>
+  cancel(): void
+} {
+  let timeout: NodeJS.Timeout | undefined
+  let cleanup: (() => void) | undefined
+  const promise = new Promise<PageTarget | null>((resolve) => {
+    timeout = setTimeout(() => {
+      cleanup?.()
+      resolve(null)
+    }, 5000)
+    cleanup = ctx.hooks.hookOnce(RUNTIME_PAGE_RECONNECTED_EVENT, (payload) => {
+      if (timeout) {
+        clearTimeout(timeout)
+      }
+
+      resolve(isPageTarget(payload) ? payload : null)
+    })
+  })
+
+  return {
+    promise,
+    cancel() {
+      if (timeout) {
+        clearTimeout(timeout)
+      }
+
+      cleanup?.()
+    }
+  }
+}
+
+/**
+ * 校验页面重连事件载荷。
+ *
+ * 事件来自浏览器运行时，刷新工具只依赖页面目标最小字段，避免把异常 payload 当成刷新完成。
+ */
+function isPageTarget(value: unknown): value is PageTarget {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return (
+    typeof value.pageId === 'string' &&
+    (value.source === 'runtime' || value.source === 'cdp') &&
+    typeof value.url === 'string' &&
+    typeof value.pathname === 'string' &&
+    typeof value.connected === 'boolean'
+  )
+}
+
+/**
+ * 通过 CDP 执行页面刷新。
+ *
+ * `ignoreCache` 是 CDP 的标准刷新参数，适合测试前规避浏览器 HTTP 缓存；
+ * 连接生命周期仍保持按工具调用即连即关，避免开发服务器长期占用调试连接。
+ */
+async function reloadPageWithCdp(
+  ctx: VueMcpNextContext,
+  pageId: string | undefined,
+  ignoreCache: boolean
+) {
+  const cdp = await connectCdpForPage(ctx, pageId)
+
+  if (!cdp) {
+    return createToolError('CDP target is unavailable for page reload')
+  }
+
+  try {
+    await cdp.client.Page.enable()
+    const loaded = cdp.client.Page.loadEventFired()
+    await cdp.client.Page.reload({ ignoreCache })
+    await loaded
+
+    return createToolResponse({
+      ok: true,
+      source: 'cdp',
+      ignoreCache,
+      pageId
+    })
+  } finally {
+    await closeCdpClient(cdp.client)
+  }
 }
 
 /**
