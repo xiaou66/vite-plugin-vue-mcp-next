@@ -47,6 +47,26 @@ describe('runtime DevTools options', () => {
     })
   })
 
+  it('enables AI skill auto config by default', () => {
+    const options = mergeOptions()
+
+    expect(options.skill).toEqual({
+      autoConfig: true
+    })
+  })
+
+  it('allows disabling AI skill auto config', () => {
+    const options = mergeOptions({
+      skill: {
+        autoConfig: false
+      }
+    })
+
+    expect(options.skill).toEqual({
+      autoConfig: false
+    })
+  })
+
   it('merges screenshot defaults', () => {
     const options = mergeOptions()
 

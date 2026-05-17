@@ -84,6 +84,38 @@ url = "http://localhost:5173/__mcp/mcp"
 
 `5173` 是示例端口。若 Vite 使用了其他端口，请替换为启动日志中打印的 MCP 地址。
 
+### 自动复制 AI 使用指南
+
+插件随 npm 包发布一份通用 Skill 文件：`skills/vite-mcp-next/SKILL.md`。Vite dev server 启动时，插件会在检测到项目中已经存在对应 AI 工具入口后，把这份静态文件复制到对应工具目录。插件不会在运行时拼接或生成 Skill 正文，包内 `skills/vite-mcp-next/SKILL.md` 是唯一内容来源。
+
+| 客户端      | 探测入口   | 自动复制目标                                   | 说明                                  |
+| ----------- | ---------- | ---------------------------------------------- | ------------------------------------- |
+| Codex       | `.codex/`  | `.codex/skills/vite-mcp-next/SKILL.md`         | 从包内 `skills/vite-mcp-next/SKILL.md` 复制 |
+| Claude Code | `.claude/` | `.claude/skills/vite-mcp-next/SKILL.md`        | 从包内 `skills/vite-mcp-next/SKILL.md` 复制 |
+| Cursor      | `.cursor/` | `.cursor/rules/vite-mcp-next.mdc`              | 从同一份 Skill 文件复制，作为项目规则参考 |
+| Trae        | `.trae/`   | 不自动复制                                     | 当前只自动写 MCP 配置，Rule 路径未作为首版稳定能力 |
+
+使用指南覆盖以下工具顺序：
+
+1. `list_pages`：先确认页面、runtime 和 CDP target
+2. `get_dom_tree` / `query_dom`：检查 DOM 结构
+3. `take_screenshot`：做视觉验证
+4. `get_console_logs`：排查 Console 报错
+5. `get_network_requests` / `get_network_request_detail`：排查接口请求
+6. `get_component_tree` / `get_component_state` / `get_router_info` / `get_pinia_tree` / `get_pinia_state`：检查 Vue 语义状态
+
+如果不希望插件复制任何 AI 使用指南，可以关闭：
+
+```ts
+vueMcpNext({
+  skill: {
+    autoConfig: false
+  }
+})
+```
+
+自动复制只会更新带有插件生成标记的文件；如果目标文件已经存在但不是插件生成的内容，插件会跳过并保留用户文件。没有使用某个 AI 工具时，对应入口目录不存在，插件不会创建该工具目录。
+
 ## 完整配置
 
 `mcpClients` 中的布尔值保留为开关语义：默认解析后为 `true`，但写入阶段会先做项目入口自动探测；用户在配置中显式写出 `true` 时表示强制创建对应客户端配置。
@@ -100,6 +132,9 @@ vueMcpNext({
     claudeCode: true,
     trae: true,
     serverName: 'vite-mcp-next'
+  },
+  skill: {
+    autoConfig: true
   },
   appendTo: undefined,
   runtime: {
@@ -155,6 +190,7 @@ vueMcpNext({
 | `printUrl`            | `boolean`                                                                                          | `true`                   | 是否在 Vite 启动日志中打印 MCP SSE 地址                                                     |
 | `mcpClients`          | `{ cursor?: boolean; codex?: boolean; claudeCode?: boolean; trae?: boolean; serverName?: string }` | 自动探测                 | 是否写入 Cursor、Codex、Claude Code、Trae 的项目级 MCP 配置；默认只处理项目中已有入口，显式 `true` 强制创建 |
 | `updateCursorMcpJson` | `boolean \| { enabled: boolean; serverName?: string }`                                             | 自动探测                 | 兼容旧配置；默认只在 `.cursor` 已存在时写入，建议新项目使用 `mcpClients`                           |
+| `skill`               | `{ autoConfig?: boolean }`                                                                         | `{ autoConfig: true }`   | 是否在检测到 Codex、Claude Code、Cursor 项目入口时自动复制包内 AI 使用指南                    |
 | `appendTo`            | `string \| RegExp`                                                                                 | `undefined`              | 非 HTML 入口注入点。配置后会在匹配入口模块前追加 runtime import                             |
 | `screenshot`          | `ScreenshotOptions`                                                                                | CDP 优先，snapdom 降级   | 页面截图配置，控制真截图、DOM 降级截图、体积上限和 snapdom 扩展                             |
 | `screenshot.type`     | `'path' \| 'base64'`                                                                               | `'path'`                 | 项目级控制截图返回文件路径还是 base64 数据                                                  |

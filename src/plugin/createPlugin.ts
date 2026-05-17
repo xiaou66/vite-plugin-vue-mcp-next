@@ -14,6 +14,7 @@ import type {
 import { createCdpLifecycleController } from './cdpLifecycle'
 import { createRuntimeInjectionController } from './injectRuntime'
 import { updateMcpClientConfigs } from './mcpClientConfig'
+import { updateSkillConfigs } from './skillConfig'
 import { createRPCServer } from 'vite-dev-rpc'
 
 /**
@@ -93,6 +94,7 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
         options.mcpClients,
         userOptions
       )
+      await updateSkillConfigs(root, options.skill)
 
       if (options.printUrl) {
         setTimeout(() => {

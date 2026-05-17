@@ -90,6 +90,9 @@ export const DEFAULT_OPTIONS: ResolvedVueMcpNextOptions = {
     trae: true,
     serverName: DEFAULT_MCP_CLIENT_SERVER_NAME
   },
+  skill: {
+    autoConfig: true
+  },
   runtime: {
     mode: 'auto',
     evaluate: {
@@ -169,6 +172,10 @@ export function mergeOptions(
     ...options,
     updateCursorMcpJson: cursorConfig,
     mcpClients,
+    skill: {
+      ...DEFAULT_OPTIONS.skill,
+      ...options.skill
+    },
     runtime: {
       ...DEFAULT_OPTIONS.runtime,
       ...options.runtime,

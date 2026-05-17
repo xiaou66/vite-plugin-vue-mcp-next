@@ -19,6 +19,8 @@ export interface VueMcpNextOptions {
   readonly updateCursorMcpJson?: boolean | CursorMcpConfig
   /** 是否写入常见 AI 客户端的项目级 MCP 配置；默认按项目已有客户端入口自动探测。 */
   readonly mcpClients?: McpClientConfigOptions
+  /** AI 使用指南自动安装配置，用于让 AI 客户端知道何时以及如何使用本 MCP。 */
+  readonly skill?: SkillConfigOptions
   /** 非 HTML 入口的运行时脚本注入点，用于兼容不直接使用 `index.html` 的项目。 */
   readonly appendTo?: string | RegExp
   /** 通用 DevTools 能力配置；Vue 专属能力不受该配置影响，始终走 Vue Runtime Bridge。 */
@@ -64,6 +66,17 @@ export interface McpClientConfigOptions {
   readonly trae?: boolean
   /** MCP 客户端中展示的服务名，同一项目存在多个 MCP 服务时用于避免冲突。 */
   readonly serverName?: string
+}
+
+/**
+ * AI 使用指南自动安装配置。
+ *
+ * 该配置只影响项目级 skill/rule 文件写入，不影响 MCP 服务是否启动；
+ * 独立开关可以让不希望插件修改 AI 客户端上下文的项目完全关闭自动安装。
+ */
+export interface SkillConfigOptions {
+  /** 是否在 Vite dev server 启动时自动安装 AI 使用指南，默认开启。 */
+  readonly autoConfig?: boolean
 }
 
 /**
@@ -331,6 +344,8 @@ export interface ResolvedVueMcpNextOptions {
   readonly updateCursorMcpJson: Required<CursorMcpConfig>
   /** 已规范化的多客户端 MCP 配置写入策略，内部写入器只读取该对象。 */
   readonly mcpClients: Required<McpClientConfigOptions>
+  /** 已补齐默认值的 AI 使用指南自动安装配置。 */
+  readonly skill: Required<SkillConfigOptions>
   /** 非 HTML 入口注入点，未配置时 HTML 注入路径生效。 */
   readonly appendTo?: string | RegExp
   /** 已补齐默认值的通用 DevTools 配置。 */

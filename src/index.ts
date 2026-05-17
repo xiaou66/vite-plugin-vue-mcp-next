@@ -19,6 +19,7 @@ export type {
   ResolvedVueMcpNextOptions,
   RuntimeMode,
   RuntimeOptions,
+  SkillConfigOptions,
   VueMcpNextContext,
   VueMcpNextOptions
 } from './types'
