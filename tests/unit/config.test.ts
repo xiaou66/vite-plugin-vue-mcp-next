@@ -35,7 +35,7 @@ describe('runtime DevTools options', () => {
     expect(options.cdp.browserUrl).toBe('http://127.0.0.1:9222')
   })
 
-  it('enables all MCP client config targets by default', () => {
+  it('keeps MCP client config targets enabled for auto detection by default', () => {
     const options = mergeOptions()
 
     expect(options.mcpClients).toEqual({

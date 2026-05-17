@@ -43,14 +43,18 @@ SSE: http://localhost:<vite-port>/__mcp/sse
 Streamable HTTP: http://localhost:<vite-port>/__mcp/mcp
 ```
 
-启动 Vite dev server 后，插件会自动写入常见 AI 客户端的项目级 MCP 配置，服务名默认是 `vue-mcp-next`。自动配置只会在缺少同名 server 条目时新增配置；如果用户已经配置了 `vue-mcp-next`，插件不会重复写入或覆盖原配置。
+启动 Vite dev server 后，插件会按项目中已经存在的客户端入口自动写入项目级 MCP 配置，服务名默认是 `vue-mcp-next`。自动配置只会在缺少同名 server 条目时新增配置；如果用户已经配置了 `vue-mcp-next`，插件不会重复写入、覆盖原配置或改写用户自定义字段。
 
-| 客户端      | 自动配置文件         | 默认端点        |
-| ----------- | -------------------- | --------------- |
-| Cursor      | `.cursor/mcp.json`   | SSE             |
-| Codex       | `.codex/config.toml` | Streamable HTTP |
-| Claude Code | `.mcp.json`          | SSE             |
-| Trae        | `.trae/mcp.json`     | SSE             |
+默认自动探测规则如下：
+
+| 客户端      | 自动探测入口 | 自动配置文件         | 默认端点        |
+| ----------- | ------------ | -------------------- | --------------- |
+| Cursor      | `.cursor/`   | `.cursor/mcp.json`   | SSE             |
+| Codex       | `.codex/`    | `.codex/config.toml` | Streamable HTTP |
+| Claude Code | `.mcp.json`  | `.mcp.json`          | SSE             |
+| Trae        | `.trae/`     | `.trae/mcp.json`     | SSE             |
+
+如果项目中没有对应入口，默认不会创建该客户端配置。需要强制创建时，可以在 `mcpClients` 中显式设置对应客户端为 `true`；需要禁用时显式设置为 `false`。
 
 实际端口以启动日志中的 `MCP: SSE server is running at ...` 和 `MCP: Streamable HTTP server is running at ...` 为准。
 
@@ -81,6 +85,8 @@ url = "http://localhost:5173/__mcp/mcp"
 `5173` 是示例端口。若 Vite 使用了其他端口，请替换为启动日志中打印的 MCP 地址。
 
 ## 完整配置
+
+`mcpClients` 中的布尔值保留为开关语义：默认解析后为 `true`，但写入阶段会先做项目入口自动探测；用户在配置中显式写出 `true` 时表示强制创建对应客户端配置。
 
 ```ts
 vueMcpNext({
@@ -147,8 +153,8 @@ vueMcpNext({
 | `mcpPath`             | `string`                                                                                           | `'/__mcp'`               | MCP 服务挂载路径，实际 SSE 地址是 `${mcpPath}/sse`，Streamable HTTP 地址是 `${mcpPath}/mcp` |
 | `host`                | `string`                                                                                           | `'localhost'`            | 打印 MCP 地址和写入 MCP 客户端配置时使用的 host                                             |
 | `printUrl`            | `boolean`                                                                                          | `true`                   | 是否在 Vite 启动日志中打印 MCP SSE 地址                                                     |
-| `mcpClients`          | `{ cursor?: boolean; codex?: boolean; claudeCode?: boolean; trae?: boolean; serverName?: string }` | 全部启用                 | 是否自动写入 Cursor、Codex、Claude Code、Trae 的项目级 MCP 配置                             |
-| `updateCursorMcpJson` | `boolean \| { enabled: boolean; serverName?: string }`                                             | `true`                   | 兼容旧配置，建议新项目使用 `mcpClients`                                                     |
+| `mcpClients`          | `{ cursor?: boolean; codex?: boolean; claudeCode?: boolean; trae?: boolean; serverName?: string }` | 自动探测                 | 是否写入 Cursor、Codex、Claude Code、Trae 的项目级 MCP 配置；默认只处理项目中已有入口，显式 `true` 强制创建 |
+| `updateCursorMcpJson` | `boolean \| { enabled: boolean; serverName?: string }`                                             | 自动探测                 | 兼容旧配置；默认只在 `.cursor` 已存在时写入，建议新项目使用 `mcpClients`                           |
 | `appendTo`            | `string \| RegExp`                                                                                 | `undefined`              | 非 HTML 入口注入点。配置后会在匹配入口模块前追加 runtime import                             |
 | `screenshot`          | `ScreenshotOptions`                                                                                | CDP 优先，snapdom 降级   | 页面截图配置，控制真截图、DOM 降级截图、体积上限和 snapdom 扩展                             |
 | `screenshot.type`     | `'path' \| 'base64'`                                                                               | `'path'`                 | 项目级控制截图返回文件路径还是 base64 数据                                                  |

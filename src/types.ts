@@ -15,9 +15,9 @@ export interface VueMcpNextOptions {
   readonly host?: string
   /** 是否在 Vite 启动日志中打印 MCP 地址，默认开启方便开发者复制到 MCP 客户端。 */
   readonly printUrl?: boolean
-  /** 是否写入 Cursor MCP 配置；只在 `.cursor` 已存在时生效，避免擅自创建编辑器配置目录。 */
+  /** 是否写入 Cursor MCP 配置；默认只在 `.cursor` 已存在时写入，显式 `true` 会创建配置。 */
   readonly updateCursorMcpJson?: boolean | CursorMcpConfig
-  /** 是否写入常见 AI 客户端的项目级 MCP 配置，默认启用 Cursor、Codex、Claude Code 和 Trae。 */
+  /** 是否写入常见 AI 客户端的项目级 MCP 配置；默认按项目已有客户端入口自动探测。 */
   readonly mcpClients?: McpClientConfigOptions
   /** 非 HTML 入口的运行时脚本注入点，用于兼容不直接使用 `index.html` 的项目。 */
   readonly appendTo?: string | RegExp
@@ -41,7 +41,7 @@ export interface VueMcpNextOptions {
  * 该配置只负责本地开发体验，不应强行修改未启用 Cursor 的项目。
  */
 export interface CursorMcpConfig {
-  /** 是否启用 Cursor 配置写入，适合团队项目显式关闭自动改配置。 */
+  /** 是否启用 Cursor 配置写入；显式启用会创建 `.cursor/mcp.json`，显式关闭会跳过。 */
   readonly enabled: boolean
   /** Cursor 展示的 MCP 服务名，用于同一项目存在多个 MCP 服务时避免冲突。 */
   readonly serverName?: string
@@ -54,13 +54,13 @@ export interface CursorMcpConfig {
  * 集中配置可以避免为每个客户端暴露一组重复选项。
  */
 export interface McpClientConfigOptions {
-  /** 是否写入 Cursor 的 `.cursor/mcp.json`，适合 Cursor 用户开箱即用。 */
+  /** 是否写入 Cursor 的 `.cursor/mcp.json`；默认只在 `.cursor` 目录已存在时自动写入。 */
   readonly cursor?: boolean
-  /** 是否写入 Codex 的 `.codex/config.toml`，适合 Codex 项目级 MCP 配置。 */
+  /** 是否写入 Codex 的 `.codex/config.toml`；默认只在 `.codex` 目录已存在时自动写入。 */
   readonly codex?: boolean
-  /** 是否写入 Claude Code 的 `.mcp.json`，采用官方项目级 MCP 配置入口。 */
+  /** 是否写入 Claude Code 的 `.mcp.json`；默认只在根目录 `.mcp.json` 已存在时自动写入。 */
   readonly claudeCode?: boolean
-  /** 是否写入 Trae 的 `.trae/mcp.json`，与 Trae 项目级 MCP 文档保持一致。 */
+  /** 是否写入 Trae 的 `.trae/mcp.json`；默认只在 `.trae` 目录已存在时自动写入。 */
   readonly trae?: boolean
   /** MCP 客户端中展示的服务名，同一项目存在多个 MCP 服务时用于避免冲突。 */
   readonly serverName?: string

@@ -90,7 +90,8 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
         root,
         mcpSseUrl,
         mcpStreamableHttpUrl,
-        options.mcpClients
+        options.mcpClients,
+        userOptions
       )
 
       if (options.printUrl) {

@@ -230,7 +230,7 @@ describe('Codex MCP client config writer', () => {
 })
 
 describe('MCP client config orchestration', () => {
-  it('writes enabled client configs and skips disabled clients', async () => {
+  it('does not create client configs when no client entry exists in auto mode', async () => {
     await updateMcpClientConfigs(
       tempRoot,
       'http://localhost:5173/__mcp/sse',
@@ -238,15 +238,47 @@ describe('MCP client config orchestration', () => {
       {
         cursor: true,
         codex: true,
-        claudeCode: false,
+        claudeCode: true,
         trae: true,
         serverName: 'vue-mcp-next'
-      }
+      },
+      {}
     )
 
     await expect(
-      fs.readFile(path.join(tempRoot, '.cursor', 'mcp.json'), 'utf-8')
-    ).resolves.toContain('http://localhost:5173/__mcp/sse')
+      fs.access(path.join(tempRoot, '.cursor', 'mcp.json'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(
+      fs.access(path.join(tempRoot, '.codex', 'config.toml'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(
+      fs.access(path.join(tempRoot, '.mcp.json'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(
+      fs.access(path.join(tempRoot, '.trae', 'mcp.json'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('writes only detected client configs in auto mode', async () => {
+    await fs.mkdir(path.join(tempRoot, '.codex'), { recursive: true })
+
+    await updateMcpClientConfigs(
+      tempRoot,
+      'http://localhost:5173/__mcp/sse',
+      'http://localhost:5173/__mcp/mcp',
+      {
+        cursor: true,
+        codex: true,
+        claudeCode: true,
+        trae: true,
+        serverName: 'vue-mcp-next'
+      },
+      {}
+    )
+
+    await expect(
+      fs.access(path.join(tempRoot, '.cursor', 'mcp.json'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(
       fs.readFile(path.join(tempRoot, '.codex', 'config.toml'), 'utf-8')
     ).resolves.toContain('[mcp_servers.vue-mcp-next]')
@@ -254,7 +286,172 @@ describe('MCP client config orchestration', () => {
       fs.access(path.join(tempRoot, '.mcp.json'))
     ).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(
-      fs.readFile(path.join(tempRoot, '.trae', 'mcp.json'), 'utf-8')
-    ).resolves.toContain('http://localhost:5173/__mcp/sse')
+      fs.access(path.join(tempRoot, '.trae', 'mcp.json'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('detects Claude Code only when root .mcp.json exists in auto mode', async () => {
+    await fs.writeFile(path.join(tempRoot, '.mcp.json'), '{}\n')
+
+    await updateMcpClientConfigs(
+      tempRoot,
+      'http://localhost:5173/__mcp/sse',
+      'http://localhost:5173/__mcp/mcp',
+      {
+        cursor: true,
+        codex: true,
+        claudeCode: true,
+        trae: true,
+        serverName: 'vue-mcp-next'
+      },
+      {}
+    )
+
+    const raw = await fs.readFile(path.join(tempRoot, '.mcp.json'), 'utf-8')
+    expect(JSON.parse(raw)).toEqual({
+      mcpServers: {
+        'vue-mcp-next': {
+          type: 'sse',
+          url: 'http://localhost:5173/__mcp/sse'
+        }
+      }
+    })
+    await expect(
+      fs.access(path.join(tempRoot, '.codex', 'config.toml'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('creates a client config when the client is explicitly enabled', async () => {
+    await updateMcpClientConfigs(
+      tempRoot,
+      'http://localhost:5173/__mcp/sse',
+      'http://localhost:5173/__mcp/mcp',
+      {
+        cursor: true,
+        codex: true,
+        claudeCode: true,
+        trae: true,
+        serverName: 'vue-mcp-next'
+      },
+      {
+        mcpClients: {
+          codex: true
+        }
+      }
+    )
+
+    await expect(
+      fs.readFile(path.join(tempRoot, '.codex', 'config.toml'), 'utf-8')
+    ).resolves.toContain('[mcp_servers.vue-mcp-next]')
+    await expect(
+      fs.access(path.join(tempRoot, '.cursor', 'mcp.json'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('skips a detected client when the client is explicitly disabled', async () => {
+    await fs.mkdir(path.join(tempRoot, '.codex'), { recursive: true })
+
+    await updateMcpClientConfigs(
+      tempRoot,
+      'http://localhost:5173/__mcp/sse',
+      'http://localhost:5173/__mcp/mcp',
+      {
+        cursor: true,
+        codex: false,
+        claudeCode: true,
+        trae: true,
+        serverName: 'vue-mcp-next'
+      },
+      {
+        mcpClients: {
+          codex: false
+        }
+      }
+    )
+
+    await expect(
+      fs.access(path.join(tempRoot, '.codex', 'config.toml'))
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('keeps an existing detected JSON MCP server unchanged', async () => {
+    const configPath = path.join(tempRoot, '.mcp.json')
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(
+        {
+          mcpServers: {
+            'vue-mcp-next': {
+              type: 'sse',
+              url: 'http://localhost:4100/__mcp/sse',
+              env: {
+                KEEP: 'true'
+              }
+            }
+          }
+        },
+        null,
+        2
+      )
+    )
+
+    await updateMcpClientConfigs(
+      tempRoot,
+      'http://localhost:5173/__mcp/sse',
+      'http://localhost:5173/__mcp/mcp',
+      {
+        cursor: true,
+        codex: true,
+        claudeCode: true,
+        trae: true,
+        serverName: 'vue-mcp-next'
+      },
+      {}
+    )
+
+    await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
+      JSON.stringify(
+        {
+          mcpServers: {
+            'vue-mcp-next': {
+              type: 'sse',
+              url: 'http://localhost:4100/__mcp/sse',
+              env: {
+                KEEP: 'true'
+              }
+            }
+          }
+        },
+        null,
+        2
+      )
+    )
+  })
+
+  it('keeps an existing detected Codex MCP server unchanged', async () => {
+    const configPath = path.join(tempRoot, '.codex', 'config.toml')
+    await fs.mkdir(path.dirname(configPath), { recursive: true })
+    await fs.writeFile(
+      configPath,
+      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:4100/__mcp/mcp"\n[mcp_servers.vue-mcp-next.env]\nKEEP = "true"\n'
+    )
+
+    await updateMcpClientConfigs(
+      tempRoot,
+      'http://localhost:5173/__mcp/sse',
+      'http://localhost:5173/__mcp/mcp',
+      {
+        cursor: true,
+        codex: true,
+        claudeCode: true,
+        trae: true,
+        serverName: 'vue-mcp-next'
+      },
+      {}
+    )
+
+    await expect(fs.readFile(configPath, 'utf-8')).resolves.toBe(
+      '[mcp_servers.vue-mcp-next]\nurl = "http://localhost:4100/__mcp/mcp"\n[mcp_servers.vue-mcp-next.env]\nKEEP = "true"\n'
+    )
   })
 })
