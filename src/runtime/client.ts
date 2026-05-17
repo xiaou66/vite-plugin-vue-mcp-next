@@ -1,19 +1,25 @@
+/**
+ * Runtime Client 是注入到浏览器页面的启动入口。
+ *
+ * 该文件负责协调 Vue、Console、Network 等浏览器端 hook 的安装，并通过 Vite hot context 上报页面状态。
+ */
 import { createHotContext } from 'vite-hot-client'
 import { installConsoleHook } from './consoleHook'
 import { installNetworkHook } from './networkHook'
 import { getRuntimePageIdentity } from './pageIdentity'
 export { setScreenshotModuleRegistry, setSnapdomLoader } from './screenshot'
-import { installVueBridge } from './vueBridge'
+import { initializeVueDevtoolsHook, installVueBridge } from './vueBridge'
 export { evaluateExpression } from './evaluateExpression'
 export type { RuntimeEvaluateRequest } from './evaluateExpression'
 
 /**
  * 启动浏览器端 Runtime Bridge。
  *
- * 运行时脚本负责连接 Vite WebSocket 并上报页面身份；Vue、Console、Network 等子能力
- * 会在后续任务中挂到这个启动流程中。
+ * Vue Devtools hook 必须在等待 Vite hot context 前同步初始化，否则 Vue app 挂载时会错过注册窗口。
  */
 export async function startRuntimeClient(): Promise<void> {
+  initializeVueDevtoolsHook()
+
   const hot = await createHotContext('vite-plugin-vue-mcp-next', '/')
 
   if (!hot) {

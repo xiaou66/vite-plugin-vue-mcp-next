@@ -1,3 +1,8 @@
+/**
+ * Vue Runtime Bridge 负责把 Vue Devtools runtime API 暴露给 MCP 服务端。
+ *
+ * 该文件只处理 Vue 语义能力，适用于组件树、组件状态、Router 和 Pinia 等 CDP 无法直接表达的应用层信息。
+ */
 import {
   devtools,
   devtoolsRouterInfo,
@@ -18,14 +23,20 @@ const COMPONENT_HIGHLIGHT_DURATION = 5000
 let highlightComponentTimeout: ReturnType<typeof setTimeout> | undefined
 
 /**
- * 安装 Vue Runtime Bridge。
+ * 同步初始化 Vue Devtools hook。
  *
- * Vue 组件树、组件状态、Router 和 Pinia 都是应用层语义，CDP 只能看到 DOM，
- * 因此这些能力必须直接使用 Vue DevTools runtime API 暴露给 MCP 服务端。
+ * Vue 会在应用 mount 时读取全局 hook 并注册 app，因此该函数必须在任何异步等待前执行。
+ */
+export function initializeVueDevtoolsHook(): void {
+  devtools.init()
+}
+
+/**
+ * 安装 Vue Runtime RPC。
+ *
+ * RPC 依赖 Vite hot context 传输消息，因此只能在 hot context 创建成功后安装。
  */
 export function installVueBridge(hot: ViteHotContext): void {
-  devtools.init()
-
   const rpcRef: { current?: VueRuntimeRpc } = {}
   const rpc = createRPCClient<VueRuntimeRpc, VueRuntimeRpc>(
     'vite-plugin-vue-mcp-next',

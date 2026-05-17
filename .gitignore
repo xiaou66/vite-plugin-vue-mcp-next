@@ -19,3 +19,9 @@ out
 _*
 /.sanshu-memory
 .serena
+docs
+.vite-mcp
+.apifox-cache
+.codex
+.trae
+.mcp.json
