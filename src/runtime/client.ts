@@ -6,7 +6,7 @@
 import { createHotContext } from 'vite-hot-client'
 import { installConsoleHook } from './consoleHook'
 import { installNetworkHook } from './networkHook'
-import { getRuntimePageIdentity } from './pageIdentity'
+import { getRuntimeClientId, getRuntimePageIdentity } from './pageIdentity'
 export { setScreenshotModuleRegistry, setSnapdomLoader } from './screenshot'
 import { initializeVueDevtoolsHook, installVueBridge } from './vueBridge'
 export { evaluateExpression } from './evaluateExpression'
@@ -31,6 +31,7 @@ export async function startRuntimeClient(): Promise<void> {
   const identity = getRuntimePageIdentity({
     href: window.location.href,
     title: document.title,
+    runtimeClientId: getRuntimeClientId(window.sessionStorage, window),
     innerWidth: window.innerWidth,
     innerHeight: window.innerHeight,
     readyState: document.readyState

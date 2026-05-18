@@ -27,9 +27,12 @@ export function registerPageTools(
   server.registerTool(
     MCP_TOOL_NAMES.listPages,
     {
-      description: 'List Vite page entries and connected runtime/CDP targets.'
+      description: 'List Vite page entries and connected runtime/CDP targets.',
+      inputSchema: {
+        includeDisconnected: z.boolean().optional()
+      }
     },
-    async () => {
+    async (input) => {
       const cdpResult = await listCdpPageTargets(ctx)
 
       for (const target of cdpResult.pages) {
@@ -39,7 +42,9 @@ export function registerPageTools(
 
       return createToolResponse({
         entries: discoverHtmlEntries(vite),
-        pages: ctx.pages.list(),
+        pages: ctx.pages.list({
+          includeDisconnected: input.includeDisconnected
+        }),
         cdpError: cdpResult.error
       })
     }

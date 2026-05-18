@@ -386,10 +386,26 @@ export interface PageTarget {
   readonly pathname: string
   /** 页面标题，用于 AI 和用户在多个相似 URL 中识别目标页面。 */
   readonly title?: string
+  /** 同标签页稳定身份，仅 runtime 目标提供，用于刷新或 HMR 重连时断开旧 pageId。 */
+  readonly runtimeClientId?: string
   /** 对应的 Vite HTML 入口或 appendTo 入口，用于说明页面来自哪个开发入口。 */
   readonly entry?: string
   /** 页面是否仍可调试，用于避免 MCP 对已断开的页面继续执行操作。 */
   readonly connected: boolean
+  /** runtime 目标断开时间，仅用于保留短期历史并清理过期断开记录。 */
+  readonly disconnectedAt?: number
+}
+
+/**
+ * 页面目标列表选项。
+ *
+ * 默认列表面向日常调试，只展示可操作页面；排查生命周期问题时可显式包含断开 runtime 记录。
+ */
+export interface PageTargetListOptions {
+  /** 是否包含已断开的 runtime 页面，默认隐藏以避免刷新历史干扰目标选择。 */
+  readonly includeDisconnected?: boolean
+  /** 测试或批处理场景可传入固定时间，避免依赖真实时钟造成用例不稳定。 */
+  readonly now?: number
 }
 
 /**
@@ -463,13 +479,13 @@ export interface NetworkRecord {
  */
 export interface PageTargetRegistry {
   /** 新增或更新页面目标，适合 runtime 重连和 CDP target 刷新场景。 */
-  upsert(target: PageTarget): void
+  upsert(target: PageTarget, now?: number): void
   /** 获取单个页面目标，工具调用解析 pageId 时使用。 */
   get(pageId: string): PageTarget | undefined
-  /** 返回所有页面目标快照，避免调用方修改内部 Map。 */
-  list(): PageTarget[]
-  /** 标记页面断开，保留记录可以帮助用户理解刚才的页面为什么不可操作。 */
-  disconnect(pageId: string): void
+  /** 返回页面目标快照，默认隐藏已断开的 runtime 历史记录。 */
+  list(options?: PageTargetListOptions): PageTarget[]
+  /** 标记页面断开，保留短期记录可以帮助用户理解刚才的页面为什么不可操作。 */
+  disconnect(pageId: string, now?: number): void
 }
 
 /**

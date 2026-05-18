@@ -402,13 +402,15 @@ export function createMaskPlugin(options: { selectors: string[] }) {
 
 | 工具             | 输入                      | 输出                            | 说明                                                              |
 | ---------------- | ------------------------- | ------------------------------- | ----------------------------------------------------------------- |
-| `list_pages`     | 无                        | `entries`、`pages`、`cdpError?` | 返回 Vite HTML 入口、runtime 页面和 CDP target                    |
+| `list_pages`     | `includeDisconnected?`    | `entries`、`pages`、`cdpError?` | 返回 Vite HTML 入口、runtime 页面和 CDP target                    |
 | `reload_page`    | `pageId?`、`ignoreCache?` | `ok`、`source`、`ignoreCache?`  | 刷新目标页面；CDP 可用时使用无缓存刷新，Runtime Hook 只能普通刷新 |
 
 `list_pages` 的 `pages` 中可能出现两类页面：
 
 - `runtime-*`：由页面注入 runtime bridge 后连接
 - `cdp:*`：由 CDP `/json/list` 发现
+
+runtime 页面会为同一个浏览器标签页维护稳定 client id。刷新或 HMR 重连后，新 `pageId` 会成为可操作目标，旧 `pageId` 会被标记为 `connected: false` 并在默认 `list_pages` 结果中隐藏；需要排查页面生命周期时可传 `includeDisconnected: true` 查看断开记录。断开的 runtime 记录保留 5 分钟后会被清理，同 URL 的不同标签页仍会保留为不同目标。
 
 `reload_page` 默认在 CDP 路径使用 `ignoreCache: true`，并等待 CDP `loadEventFired` 后返回，适合在测试前绕过浏览器 HTTP 缓存重新加载页面。未配置 CDP 时会退回 Runtime Hook，通过 `window.location.reload()` 触发普通刷新，并等待新的 runtime 页面重新接入；这条回退路径不能保证绕过 HTTP cache，也不会清理 `localStorage`、`sessionStorage`、`IndexedDB`、`CacheStorage` 或 Service Worker 缓存。
 

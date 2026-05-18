@@ -142,7 +142,9 @@ function isRuntimePageTarget(payload: unknown): payload is PageTarget {
     typeof target.pageId === 'string' &&
     typeof target.url === 'string' &&
     typeof target.pathname === 'string' &&
-    typeof target.connected === 'boolean'
+    typeof target.connected === 'boolean' &&
+    (target.runtimeClientId === undefined ||
+      typeof target.runtimeClientId === 'string')
   )
 }
 

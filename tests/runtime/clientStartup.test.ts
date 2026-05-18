@@ -5,12 +5,14 @@ const initializeVueDevtoolsHook = vi.fn()
 const installVueBridge = vi.fn()
 const installConsoleHook = vi.fn()
 const installNetworkHook = vi.fn()
+const getRuntimeClientId = vi.fn(() => 'runtime-client-test')
 const getRuntimePageIdentity = vi.fn(() => ({
   pageId: 'runtime-test',
   source: 'runtime',
   url: 'http://localhost:3456/',
   pathname: '/',
   title: 'Test page',
+  runtimeClientId: 'runtime-client-test',
   connected: true,
   readyState: 'complete',
   viewport: {
@@ -37,6 +39,7 @@ vi.mock('../../src/runtime/networkHook', () => ({
 }))
 
 vi.mock('../../src/runtime/pageIdentity', () => ({
+  getRuntimeClientId,
   getRuntimePageIdentity
 }))
 

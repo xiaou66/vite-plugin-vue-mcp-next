@@ -9,6 +9,48 @@ vi.mock('../../src/cdp/cdpClient', () => ({
 }))
 
 describe('registerPageTools', () => {
+  it('hides disconnected runtime targets by default and shows them on demand', async () => {
+    const server = createServer()
+    const ctx = createVueMcpNextContext(DEFAULT_OPTIONS)
+
+    ctx.pages.upsert({
+      pageId: 'runtime-connected',
+      source: 'runtime',
+      url: 'http://localhost:5173/connected.html',
+      pathname: '/connected.html',
+      connected: true
+    })
+    ctx.pages.upsert({
+      pageId: 'runtime-disconnected',
+      source: 'runtime',
+      url: 'http://localhost:5173/disconnected.html',
+      pathname: '/disconnected.html',
+      connected: true
+    })
+    ctx.pages.disconnect('runtime-disconnected')
+
+    registerPageTools(server as never, ctx, createViteServer() as never)
+
+    const defaultResult = await server.tools.list_pages({})
+    const visiblePages = defaultResult.structuredContent.pages as Array<{
+      readonly pageId: string
+    }>
+
+    expect(visiblePages.map((page) => page.pageId)).toEqual([
+      'runtime-connected'
+    ])
+
+    const debugResult = await server.tools.list_pages({ includeDisconnected: true })
+    const allPages = debugResult.structuredContent.pages as Array<{
+      readonly pageId: string
+    }>
+
+    expect(allPages.map((page) => page.pageId)).toEqual([
+      'runtime-connected',
+      'runtime-disconnected'
+    ])
+  })
+
   it('reloads selected page with CDP ignoreCache when CDP endpoint is configured', async () => {
     const server = createServer()
     const pageReload = vi.fn(() => Promise.resolve())
@@ -118,7 +160,7 @@ function createServer() {
 function createViteServer() {
   return {
     config: {
-      root: '/project'
+      root: process.cwd()
     },
     middlewares: {
       stack: []
