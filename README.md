@@ -692,3 +692,8 @@ npm publish
 - `bugs: https://github.com/xiaou66/vite-plugin-vue-mcp-next/issues`
 - `publishConfig.access: public`
 - `files: dist, README.md, LICENSE`
+
+
+# 友情链接
+
+- [LINUX DO - 新的理想型社区](https://linux.do/)
