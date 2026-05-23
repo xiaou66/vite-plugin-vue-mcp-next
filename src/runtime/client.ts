@@ -4,6 +4,12 @@
  * 该文件负责协调 Vue、Console、Network 等浏览器端 hook 的安装，并通过 Vite hot context 上报页面状态。
  */
 import { createHotContext } from 'vite-hot-client'
+import {
+  DEFAULT_RUNTIME_PAGE_HEARTBEAT_INTERVAL_MS,
+  RUNTIME_PAGE_CONNECTED_EVENT,
+  RUNTIME_PAGE_DISCONNECTED_EVENT,
+  RUNTIME_PAGE_HEARTBEAT_EVENT
+} from '../constants'
 import { installConsoleHook } from './consoleHook'
 import { installNetworkHook } from './networkHook'
 import { getRuntimeClientId, getRuntimePageIdentity } from './pageIdentity'
@@ -38,7 +44,11 @@ export async function startRuntimeClient(): Promise<void> {
     readyState: document.readyState
   })
 
-  hot.send('vite-plugin-vue-mcp-next:page-connected', identity)
+  hot.send(RUNTIME_PAGE_CONNECTED_EVENT, identity)
+  installRuntimePageLifecycle({
+    pageId: identity.pageId,
+    send: hot.send.bind(hot)
+  })
   installPerformanceHook({
     pageId: identity.pageId,
     send(report) {
@@ -59,4 +69,37 @@ export async function startRuntimeClient(): Promise<void> {
       hot.send('vite-plugin-vue-mcp-next:network-record', record)
     }
   })
+}
+
+/**
+ * 安装 runtime 页面生命周期上报。
+ *
+ * 该逻辑只负责上报连接、心跳和离开，不参与页面目标决策，避免把服务端语义带回浏览器侧。
+ */
+function installRuntimePageLifecycle(options: {
+  readonly pageId: string
+  readonly send: (event: string, payload: unknown) => void
+}): void {
+  let disconnected = false
+  const heartbeatTimer = setInterval(() => {
+    options.send(RUNTIME_PAGE_HEARTBEAT_EVENT, {
+      pageId: options.pageId,
+      timestamp: Date.now()
+    })
+  }, DEFAULT_RUNTIME_PAGE_HEARTBEAT_INTERVAL_MS)
+
+  const disconnect = (): void => {
+    if (disconnected) {
+      return
+    }
+
+    disconnected = true
+    clearInterval(heartbeatTimer)
+    options.send(RUNTIME_PAGE_DISCONNECTED_EVENT, {
+      pageId: options.pageId
+    })
+  }
+
+  window.addEventListener('pagehide', disconnect, { once: true })
+  window.addEventListener('beforeunload', disconnect, { once: true })
 }

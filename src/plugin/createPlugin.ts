@@ -1,6 +1,14 @@
 import type { Plugin, ResolvedConfig } from 'vite'
 import { searchForWorkspaceRoot } from 'vite'
-import { mergeOptions, RUNTIME_PAGE_RECONNECTED_EVENT } from '../constants'
+import {
+  DEFAULT_RUNTIME_PAGE_HEARTBEAT_SCAN_INTERVAL_MS,
+  DEFAULT_RUNTIME_PAGE_HEARTBEAT_TIMEOUT_MS,
+  mergeOptions,
+  RUNTIME_PAGE_CONNECTED_EVENT,
+  RUNTIME_PAGE_DISCONNECTED_EVENT,
+  RUNTIME_PAGE_HEARTBEAT_EVENT,
+  RUNTIME_PAGE_RECONNECTED_EVENT
+} from '../constants'
 import { createVueMcpNextContext } from '../context'
 import { createMcpServer } from '../mcp/createMcpServer'
 import { setupMcpTransport } from '../mcp/transport'
@@ -58,32 +66,58 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
         () => createMcpServer(ctx, server),
         server
       )
-      server.ws.on(
-        'vite-plugin-vue-mcp-next:page-connected',
-        (payload: unknown) => {
-          if (isRuntimePageTarget(payload)) {
-            ctx.pages.upsert(payload)
-            void ctx.hooks.callHook(RUNTIME_PAGE_RECONNECTED_EVENT, payload)
-            void cdpLifecycle.connectPage(payload)
+      const lastSeenAt = new Map<string, number>()
+      const heartbeatTimer = setInterval(() => {
+        const now = Date.now()
+
+        for (const [pageId, seenAt] of lastSeenAt) {
+          const target = ctx.pages.get(pageId)
+
+          if (!target || target.source !== 'runtime' || !target.connected) {
+            lastSeenAt.delete(pageId)
+            continue
+          }
+
+          if (now - seenAt >= DEFAULT_RUNTIME_PAGE_HEARTBEAT_TIMEOUT_MS) {
+            ctx.pages.disconnect(pageId, now)
+            lastSeenAt.delete(pageId)
           }
         }
-      )
-      server.ws.on(
-        'vite-plugin-vue-mcp-next:console-record',
-        (payload: unknown) => {
-          if (isConsoleRecord(payload)) {
-            ctx.consoleRecords.push(payload)
+      }, DEFAULT_RUNTIME_PAGE_HEARTBEAT_SCAN_INTERVAL_MS)
+
+      server.ws.on(RUNTIME_PAGE_CONNECTED_EVENT, (payload: unknown) => {
+        if (isRuntimePageTarget(payload)) {
+          ctx.pages.upsert(payload)
+          lastSeenAt.set(payload.pageId, Date.now())
+          void ctx.hooks.callHook(RUNTIME_PAGE_RECONNECTED_EVENT, payload)
+          void cdpLifecycle.connectPage(payload)
+        }
+      })
+      server.ws.on(RUNTIME_PAGE_HEARTBEAT_EVENT, (payload: unknown) => {
+        if (isRuntimeHeartbeatTarget(payload)) {
+          const target = ctx.pages.get(payload.pageId)
+
+          if (target?.source === 'runtime' && target.connected) {
+            lastSeenAt.set(payload.pageId, payload.timestamp)
           }
         }
-      )
-      server.ws.on(
-        'vite-plugin-vue-mcp-next:network-record',
-        (payload: unknown) => {
-          if (isNetworkRecord(payload)) {
-            ctx.networkRecords.push(payload)
-          }
+      })
+      server.ws.on(RUNTIME_PAGE_DISCONNECTED_EVENT, (payload: unknown) => {
+        if (isRuntimeDisconnectTarget(payload)) {
+          ctx.pages.disconnect(payload.pageId)
+          lastSeenAt.delete(payload.pageId)
         }
-      )
+      })
+      server.ws.on('vite-plugin-vue-mcp-next:console-record', (payload: unknown) => {
+        if (isConsoleRecord(payload)) {
+          ctx.consoleRecords.push(payload)
+        }
+      })
+      server.ws.on('vite-plugin-vue-mcp-next:network-record', (payload: unknown) => {
+        if (isNetworkRecord(payload)) {
+          ctx.networkRecords.push(payload)
+        }
+      })
       server.ws.on(
         'vite-plugin-vue-mcp-next:performance-record',
         (payload: unknown) => {
@@ -116,6 +150,7 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
       }
 
       server.httpServer?.once('close', () => {
+        clearInterval(heartbeatTimer)
         void cdpLifecycle.closeAll()
       })
     },
@@ -156,6 +191,40 @@ function isRuntimePageTarget(payload: unknown): payload is PageTarget {
     (target.runtimeClientId === undefined ||
       typeof target.runtimeClientId === 'string')
   )
+}
+
+/**
+ * 校验 runtime 心跳载荷。
+ *
+ * 心跳只负责刷新活性时间，不应允许服务端接受结构不完整的数据。
+ */
+function isRuntimeHeartbeatTarget(
+  payload: unknown
+): payload is { readonly pageId: string; readonly timestamp: number } {
+  if (!payload || typeof payload !== 'object') {
+    return false
+  }
+
+  const target = payload as Partial<{ pageId: string; timestamp: number }>
+
+  return typeof target.pageId === 'string' && typeof target.timestamp === 'number'
+}
+
+/**
+ * 校验 runtime 主动断开载荷。
+ *
+ * 断开事件只需要 pageId，避免把页面卸载过程里的其他状态误当成服务端输入。
+ */
+function isRuntimeDisconnectTarget(
+  payload: unknown
+): payload is { readonly pageId: string } {
+  if (!payload || typeof payload !== 'object') {
+    return false
+  }
+
+  const target = payload as Partial<{ pageId: string }>
+
+  return typeof target.pageId === 'string'
 }
 
 /**

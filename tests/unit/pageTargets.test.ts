@@ -15,7 +15,10 @@ describe('PageTargetRegistry', () => {
       connected: true
     }, now)
     ctx.pages.disconnect('runtime-old', now)
+    ctx.pages.disconnect('runtime-old', now + 10_000)
 
+    expect(ctx.pages.list({ now: now + 1 })).toHaveLength(0)
+    expect(ctx.pages.get('runtime-old')?.disconnectedAt).toBe(now)
     expect(ctx.pages.list({ now: now + 299_999, includeDisconnected: true }))
       .toHaveLength(1)
     expect(ctx.pages.list({ now: now + 300_001, includeDisconnected: true }))

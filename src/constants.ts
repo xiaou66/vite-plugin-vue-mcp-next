@@ -94,6 +94,27 @@ export const LEGACY_MCP_CLIENT_SERVER_NAMES = ['vue-mcp-next'] as const
 export const RUNTIME_PAGE_RECONNECTED_EVENT =
   'vite-plugin-vue-mcp-next:page-reconnected'
 
+/** Runtime 页面连接事件名，供 runtime client 启动时上报页面进入。 */
+export const RUNTIME_PAGE_CONNECTED_EVENT =
+  'vite-plugin-vue-mcp-next:page-connected'
+
+/** Runtime 页面断开事件名，供页面卸载时主动通知服务端清理目标。 */
+export const RUNTIME_PAGE_DISCONNECTED_EVENT =
+  'vite-plugin-vue-mcp-next:page-disconnected'
+
+/** Runtime 页面心跳事件名，供服务端兜底判断页面是否失活。 */
+export const RUNTIME_PAGE_HEARTBEAT_EVENT =
+  'vite-plugin-vue-mcp-next:heartbeat'
+
+/** Runtime 页面心跳间隔，保持较低流量并覆盖正常关闭场景。 */
+export const DEFAULT_RUNTIME_PAGE_HEARTBEAT_INTERVAL_MS = 15_000
+
+/** Runtime 页面失活阈值，留出心跳抖动和短暂阻塞的缓冲。 */
+export const DEFAULT_RUNTIME_PAGE_HEARTBEAT_TIMEOUT_MS = 45_000
+
+/** Runtime 页面兜底扫描间隔，和失活阈值保持一致以减少无意义轮询。 */
+export const DEFAULT_RUNTIME_PAGE_HEARTBEAT_SCAN_INTERVAL_MS = 45_000
+
 /** 安全默认值，优先保证调试工具不会默认暴露危险能力。 */
 export const DEFAULT_OPTIONS: ResolvedVueMcpNextOptions = {
   mcpPath: DEFAULT_MCP_PATH,
