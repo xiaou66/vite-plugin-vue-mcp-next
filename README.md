@@ -19,6 +19,7 @@
 | Vue 组件状态        | Vue Runtime Bridge   | Vue Runtime Bridge                | 读取和编辑组件状态                                        |
 | Router 信息         | Vue Runtime Bridge   | Vue Runtime Bridge                | 返回当前路由和路由表                                      |
 | Pinia 状态          | Vue Runtime Bridge   | Vue Runtime Bridge                | 返回 Pinia inspector tree 和 store state                  |
+| 性能诊断            | Runtime Hook         | CDP 优先，Hook 兜底               | 可分析主线程卡顿、内存趋势和堆栈，CDP 时可导出 profile    |
 
 ## 安装与使用
 
@@ -177,6 +178,19 @@ vueMcpNext({
       },
       plugins: []
     }
+  },
+  performance: {
+    mode: 'auto',
+    maxDurationMs: 30000,
+    sampleIntervalMs: 250,
+    longTaskThresholdMs: 50,
+    saveDir: '.vite-mcp/performance',
+    memory: {
+      enabled: true
+    },
+    stacks: {
+      enabled: true
+    }
   }
 })
 ```
@@ -195,6 +209,7 @@ vueMcpNext({
 | `screenshot`          | `ScreenshotOptions`                                                                                | CDP 优先，snapdom 降级   | 页面截图配置，控制真截图、DOM 降级截图、体积上限和 snapdom 扩展                             |
 | `screenshot.type`     | `'path' \| 'base64'`                                                                               | `'path'`                 | 项目级控制截图返回文件路径还是 base64 数据                                                  |
 | `screenshot.saveDir`  | `string`                                                                                           | `'.vite-mcp/screenshot'` | 截图保存目录；相对路径按 Vite 项目根目录解析                                                |
+| `performance`         | `PerformanceOptions`                                                                               | `auto + hook 兜底`      | 性能诊断配置，控制采样时长、保存目录和 runtime / CDP 采集边界                              |
 
 `appendTo` 适合 playground、框架包装入口、或不希望通过 `transformIndexHtml` 注入的场景：
 
@@ -236,6 +251,37 @@ console.warn('mcp log', { ok: true })
 ```
 
 如果需要完整 DevTools Console 行为，建议配置 CDP。
+
+### 性能诊断
+
+`performance.mode` 默认是 `auto`。插件会优先使用 CDP，拿到更完整的 CPU profile 和 heap snapshot；当没有调试权限时，会回退到页面 Hook，只采集浏览器公开可见的信号，例如长任务、事件循环延迟、内存趋势和运行时错误堆栈。
+
+`performance.mode` 的含义如下：
+
+- `auto`：能连上 CDP 就用 CDP，否则走 Hook
+- `cdp`：强制使用 CDP，连不上就返回明确错误
+- `hook`：只走 Hook，不尝试 CDP
+- `off`：关闭性能诊断
+
+可用工具如下：
+
+- `record_performance`：一次性采样，适合快速判断页面是否卡顿
+- `start_performance_recording` / `stop_performance_recording`：开始和结束一段录制，适合先观察现场再收口
+- `get_performance_report`：读取最近缓存的报告和活动会话
+- `take_heap_snapshot`：只支持 CDP，直接返回服务端保存的 heap snapshot 路径
+
+示例：
+
+```text
+record_performance
+```
+
+```text
+start_performance_recording
+stop_performance_recording
+```
+
+原始 CPU profile 和 heap snapshot 不会直接塞进 MCP 响应，而是由服务端写入 `performance.saveDir`，默认是 `.vite-mcp/performance`。工具返回的是摘要和文件路径，方便后续离线分析。
 
 ### CDP 配置
 

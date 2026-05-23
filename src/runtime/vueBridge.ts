@@ -14,6 +14,7 @@ import {
 import { createRPCClient } from 'vite-dev-rpc'
 import type { ViteHotContext } from 'vite-hot-client'
 import type { VueRuntimeRpc } from '../types'
+import { getPerformanceCollector } from './performanceHook'
 import { createRuntimeDevtoolsRpc } from './devtoolsBridge'
 
 const PINIA_INSPECTOR_ID = 'pinia'
@@ -152,7 +153,85 @@ function createClientVueRuntimeRpc(getRpc: () => VueRuntimeRpc): VueRuntimeRpc {
       })
       getRpc().onPiniaInfoUpdated(query.event, stringify(result))
     },
-    onPiniaInfoUpdated: () => undefined
+    onPiniaInfoUpdated: () => undefined,
+    async recordPerformance(query) {
+      const collector = getPerformanceCollector()
+
+      if (!collector) {
+        getRpc().onPerformanceRecorded(
+          query.event,
+          createPerformanceUnavailableError()
+        )
+        return
+      }
+
+      try {
+        const report = await collector.recordOnce({
+          durationMs: query.durationMs,
+          includeMemory: query.includeMemory,
+          includeStacks: query.includeStacks
+        })
+        getRpc().onPerformanceRecorded(query.event, report)
+      } catch (error) {
+        getRpc().onPerformanceRecorded(
+          query.event,
+          createPerformanceError(error)
+        )
+      }
+    },
+    onPerformanceRecorded: () => undefined,
+    startPerformanceRecording(query) {
+      const collector = getPerformanceCollector()
+
+      if (!collector) {
+        getRpc().onPerformanceRecordingStarted(
+          query.event,
+          createPerformanceUnavailableError()
+        )
+        return
+      }
+
+      try {
+        const recordingId = collector.start({
+          includeMemory: query.includeMemory,
+          includeStacks: query.includeStacks
+        })
+        getRpc().onPerformanceRecordingStarted(query.event, {
+          ok: true,
+          recordingId,
+          startedAt: Date.now(),
+          source: 'hook'
+        })
+      } catch (error) {
+        getRpc().onPerformanceRecordingStarted(
+          query.event,
+          createPerformanceError(error)
+        )
+      }
+    },
+    onPerformanceRecordingStarted: () => undefined,
+    stopPerformanceRecording(query) {
+      const collector = getPerformanceCollector()
+
+      if (!collector) {
+        getRpc().onPerformanceRecordingStopped(
+          query.event,
+          createPerformanceUnavailableError()
+        )
+        return
+      }
+
+      try {
+        const report = collector.stop(query.recordingId)
+        getRpc().onPerformanceRecordingStopped(query.event, report)
+      } catch (error) {
+        getRpc().onPerformanceRecordingStopped(
+          query.event,
+          createPerformanceError(error)
+        )
+      }
+    },
+    onPerformanceRecordingStopped: () => undefined
   }
 }
 
@@ -218,6 +297,37 @@ function callVueDevtoolsHook(name: string, payload?: unknown): void {
     callHook: (event: string, payload?: unknown) => void
   }
   hooks.callHook(name, payload)
+}
+
+/**
+ * 生成性能 RPC 不可用的统一错误回包。
+ *
+ * performance collector 只在 runtime client 完成安装后存在；如果 Vue bridge 先被调用，
+ * 与其让请求悬空，不如明确告诉服务端稍后重试。
+ */
+function createPerformanceUnavailableError(): {
+  readonly ok: false
+  readonly error: string
+} {
+  return {
+    ok: false,
+    error: 'Performance collector is not initialized'
+  }
+}
+
+/**
+ * 把性能 RPC 异常收敛成结构化错误。
+ *
+ * 运行态采集不应该把异常直接抛回 RPC 调用链，否则会让整个 bridge 请求失败。
+ */
+function createPerformanceError(error: unknown): {
+  readonly ok: false
+  readonly error: string
+} {
+  return {
+    ok: false,
+    error: error instanceof Error ? error.message : String(error)
+  }
 }
 
 /**

@@ -7,6 +7,7 @@ import { createHotContext } from 'vite-hot-client'
 import { installConsoleHook } from './consoleHook'
 import { installNetworkHook } from './networkHook'
 import { getRuntimeClientId, getRuntimePageIdentity } from './pageIdentity'
+import { installPerformanceHook } from './performanceHook'
 export { setScreenshotModuleRegistry, setSnapdomLoader } from './screenshot'
 import { initializeVueDevtoolsHook, installVueBridge } from './vueBridge'
 export { evaluateExpression } from './evaluateExpression'
@@ -38,6 +39,12 @@ export async function startRuntimeClient(): Promise<void> {
   })
 
   hot.send('vite-plugin-vue-mcp-next:page-connected', identity)
+  installPerformanceHook({
+    pageId: identity.pageId,
+    send(report) {
+      hot.send('vite-plugin-vue-mcp-next:performance-record', report)
+    }
+  })
   installConsoleHook({
     pageId: identity.pageId,
     send(record) {

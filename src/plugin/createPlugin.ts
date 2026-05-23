@@ -4,11 +4,13 @@ import { mergeOptions, RUNTIME_PAGE_RECONNECTED_EVENT } from '../constants'
 import { createVueMcpNextContext } from '../context'
 import { createMcpServer } from '../mcp/createMcpServer'
 import { setupMcpTransport } from '../mcp/transport'
+import { appendPerformanceReport } from '../mcp/tools/performance'
 import { createServerVueRuntimeRpc } from '../mcp/vueRpc'
 import type {
   ConsoleRecord,
   NetworkRecord,
   PageTarget,
+  PerformanceReport,
   VueMcpNextOptions
 } from '../types'
 import { createCdpLifecycleController } from './cdpLifecycle'
@@ -79,6 +81,14 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
         (payload: unknown) => {
           if (isNetworkRecord(payload)) {
             ctx.networkRecords.push(payload)
+          }
+        }
+      )
+      server.ws.on(
+        'vite-plugin-vue-mcp-next:performance-record',
+        (payload: unknown) => {
+          if (isPerformanceReport(payload)) {
+            appendPerformanceReport(ctx, payload)
           }
         }
       )
@@ -204,5 +214,28 @@ function isNetworkRecord(payload: unknown): payload is NetworkRecord {
     typeof record.url === 'string' &&
     typeof record.method === 'string' &&
     typeof record.startedAt === 'number'
+  )
+}
+
+/**
+ * 校验 performance hook 上报记录。
+ *
+ * 性能报告由浏览器运行时主动推送，服务端只接收足以完成缓存和查询的最小字段，
+ * 避免异常 payload 污染 `get_performance_report` 的结果。
+ */
+function isPerformanceReport(payload: unknown): payload is PerformanceReport {
+  if (!payload || typeof payload !== 'object') {
+    return false
+  }
+
+  const report = payload as Partial<PerformanceReport>
+
+  return (
+    typeof report.recordingId === 'string' &&
+    typeof report.pageId === 'string' &&
+    (report.source === 'hook' || report.source === 'cdp') &&
+    Boolean(report.summary) &&
+    Array.isArray(report.longTasks) &&
+    Array.isArray(report.limitations)
   )
 }

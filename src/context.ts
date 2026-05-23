@@ -6,6 +6,7 @@
  */
 import { createHooks } from 'hookable'
 import { createRingBuffer } from './shared/ringBuffer'
+import { DEFAULT_PERFORMANCE_MAX_REPORTS } from './constants'
 import type {
   ConsoleRecord,
   NetworkRecord,
@@ -13,6 +14,8 @@ import type {
   PageTargetListOptions,
   PageTargetRegistry,
   ResolvedVueMcpNextOptions,
+  PerformanceReport,
+  PerformanceSession,
   VueMcpNextContext
 } from './types'
 
@@ -165,6 +168,10 @@ export function createVueMcpNextContext(
     rpcServer: undefined,
     pages: createPageTargetRegistry(),
     consoleRecords: createRingBuffer<ConsoleRecord>(options.console.maxRecords),
-    networkRecords: createRingBuffer<NetworkRecord>(options.network.maxRecords)
+    networkRecords: createRingBuffer<NetworkRecord>(options.network.maxRecords),
+    performanceReports: createRingBuffer<PerformanceReport>(
+      DEFAULT_PERFORMANCE_MAX_REPORTS
+    ),
+    performanceSessions: new Map<string, PerformanceSession>()
   }
 }

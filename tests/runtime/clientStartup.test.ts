@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const createHotContext = vi.fn()
 const initializeVueDevtoolsHook = vi.fn()
 const installVueBridge = vi.fn()
+const installPerformanceHook = vi.fn()
 const installConsoleHook = vi.fn()
 const installNetworkHook = vi.fn()
 const getRuntimeClientId = vi.fn(() => 'runtime-client-test')
@@ -28,6 +29,10 @@ vi.mock('vite-hot-client', () => ({
 vi.mock('../../src/runtime/vueBridge', () => ({
   initializeVueDevtoolsHook,
   installVueBridge
+}))
+
+vi.mock('../../src/runtime/performanceHook', () => ({
+  installPerformanceHook
 }))
 
 vi.mock('../../src/runtime/consoleHook', () => ({
@@ -82,5 +87,26 @@ describe('startRuntimeClient', () => {
       'vite-plugin-vue-mcp-next:page-connected',
       expect.objectContaining({ pageId: 'runtime-test' })
     )
+  })
+
+  it('installs the performance hook during runtime startup', async () => {
+    const send = (): void => undefined
+    const hot = {
+      send
+    }
+    createHotContext.mockResolvedValue(hot)
+
+    const { startRuntimeClient } = await import('../../src/runtime/client')
+    await startRuntimeClient()
+
+    const [arg] = vi.mocked(installPerformanceHook).mock.calls[0] as [
+      {
+        readonly pageId: string
+        readonly send: (report: unknown) => void
+      }
+    ]
+
+    expect(arg.pageId).toBe('runtime-test')
+    expect(typeof arg.send).toBe('function')
   })
 })

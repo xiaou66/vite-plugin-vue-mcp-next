@@ -82,6 +82,42 @@ describe('runtime DevTools options', () => {
     })
   })
 
+  it('merges performance defaults', () => {
+    const options = mergeOptions()
+
+    expect(options.performance).toEqual({
+      mode: 'auto',
+      maxDurationMs: 30000,
+      sampleIntervalMs: 250,
+      longTaskThresholdMs: 50,
+      saveDir: '.vite-mcp/performance',
+      memory: {
+        enabled: true
+      },
+      stacks: {
+        enabled: true
+      }
+    })
+  })
+
+  it('keeps performance output routing configurable', () => {
+    const options = mergeOptions({
+      performance: {
+        mode: 'hook',
+        saveDir: 'custom-performance'
+      }
+    })
+
+    expect(options.performance.mode).toBe('hook')
+    expect(options.performance.saveDir).toBe('custom-performance')
+    expect(options.performance.memory).toEqual({
+      enabled: true
+    })
+    expect(options.performance.stacks).toEqual({
+      enabled: true
+    })
+  })
+
   it('merges snapdom options and Vite import path plugins', () => {
     const options = mergeOptions({
       screenshot: {

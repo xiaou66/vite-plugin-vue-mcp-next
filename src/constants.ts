@@ -22,6 +22,21 @@ export const DEFAULT_SCREENSHOT_MAX_BYTES = 5 * 1024 * 1024
 /** 默认截图保存目录，项目级 MCP 使用项目内目录方便用户复查截图文件。 */
 export const DEFAULT_SCREENSHOT_SAVE_DIR = '.vite-mcp/screenshot'
 
+/** 默认性能诊断保存目录，原始 profile 和 heap 文件都应保存在项目内。 */
+export const DEFAULT_PERFORMANCE_SAVE_DIR = '.vite-mcp/performance'
+
+/** 默认性能报告缓冲上限，避免长时间会话无限累积历史诊断结果。 */
+export const DEFAULT_PERFORMANCE_MAX_REPORTS = 100
+
+/** 默认性能诊断最大时长，避免一次采集长时间占用浏览器资源。 */
+export const DEFAULT_PERFORMANCE_MAX_DURATION_MS = 30_000
+
+/** 默认性能诊断采样间隔，兼顾趋势判断和额外采样开销。 */
+export const DEFAULT_PERFORMANCE_SAMPLE_INTERVAL_MS = 250
+
+/** 默认长任务阈值，沿用浏览器 Long Task 的常见卡顿判断口径。 */
+export const DEFAULT_PERFORMANCE_LONG_TASK_THRESHOLD_MS = 50
+
 /** MCP 工具名集中管理，避免工具注册和测试中出现拼写漂移。 */
 export const MCP_TOOL_NAMES = {
   listPages: 'list_pages',
@@ -35,6 +50,11 @@ export const MCP_TOOL_NAMES = {
   getNetworkRequests: 'get_network_requests',
   getNetworkRequestDetail: 'get_network_request_detail',
   clearNetworkRequests: 'clear_network_requests',
+  recordPerformance: 'record_performance',
+  startPerformanceRecording: 'start_performance_recording',
+  stopPerformanceRecording: 'stop_performance_recording',
+  getPerformanceReport: 'get_performance_report',
+  takeHeapSnapshot: 'take_heap_snapshot',
   getComponentTree: 'get_component_tree',
   getComponentState: 'get_component_state',
   editComponentState: 'edit_component_state',
@@ -126,6 +146,19 @@ export const DEFAULT_OPTIONS: ResolvedVueMcpNextOptions = {
       options: {},
       plugins: []
     }
+  },
+  performance: {
+    mode: 'auto',
+    maxDurationMs: DEFAULT_PERFORMANCE_MAX_DURATION_MS,
+    sampleIntervalMs: DEFAULT_PERFORMANCE_SAMPLE_INTERVAL_MS,
+    longTaskThresholdMs: DEFAULT_PERFORMANCE_LONG_TASK_THRESHOLD_MS,
+    saveDir: DEFAULT_PERFORMANCE_SAVE_DIR,
+    memory: {
+      enabled: true
+    },
+    stacks: {
+      enabled: true
+    }
   }
 }
 
@@ -216,6 +249,18 @@ export function mergeOptions(
         plugins: options.screenshot?.snapdom?.plugins ?? [
           ...DEFAULT_OPTIONS.screenshot.snapdom.plugins
         ]
+      }
+    },
+    performance: {
+      ...DEFAULT_OPTIONS.performance,
+      ...options.performance,
+      memory: {
+        ...DEFAULT_OPTIONS.performance.memory,
+        ...options.performance?.memory
+      },
+      stacks: {
+        ...DEFAULT_OPTIONS.performance.stacks,
+        ...options.performance?.stacks
       }
     }
   }

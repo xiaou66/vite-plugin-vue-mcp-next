@@ -30,6 +30,18 @@ export function createServerVueRuntimeRpc(
     onScreenshotTaken: (event, data) => {
       void ctx.hooks.callHook(event, data)
     },
+    recordPerformance: () => undefined,
+    onPerformanceRecorded: (event, data) => {
+      void ctx.hooks.callHook(event, data)
+    },
+    startPerformanceRecording: () => undefined,
+    onPerformanceRecordingStarted: (event, data) => {
+      void ctx.hooks.callHook(event, data)
+    },
+    stopPerformanceRecording: () => undefined,
+    onPerformanceRecordingStopped: (event, data) => {
+      void ctx.hooks.callHook(event, data)
+    },
     getInspectorTree: () => undefined,
     onInspectorTreeUpdated: (event, data) => {
       void ctx.hooks.callHook(event, data)

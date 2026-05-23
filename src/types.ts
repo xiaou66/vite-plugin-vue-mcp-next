@@ -35,6 +35,8 @@ export interface VueMcpNextOptions {
   readonly console?: ConsoleOptions
   /** Screenshot 配置；CDP 真截图优先，runtime 降级使用 snapdom。 */
   readonly screenshot?: ScreenshotOptions
+  /** 性能诊断配置；默认用轻量 Runtime 采样，配置 CDP 后可升级为 CPU Profile 与 Heap Snapshot。 */
+  readonly performance?: PerformanceOptions
 }
 
 /**
@@ -94,6 +96,241 @@ export interface RuntimeOptions {
 
 /** 通用 DevTools 能力的数据源选择策略，用于在 CDP 和页面 Hook 之间明确边界。 */
 export type RuntimeMode = 'auto' | 'cdp' | 'hook'
+
+/**
+ * 性能诊断的运行模式。
+ *
+ * `off` 允许项目显式关闭性能采集，适合某些页面对调试采样非常敏感的场景。
+ */
+export type PerformanceMode = RuntimeMode | 'off'
+
+/**
+ * 性能内存采样配置。
+ *
+ * 该开关允许项目仅采集卡顿信息而不持续读取内存趋势，适合对浏览器兼容性要求较高的场景。
+ */
+export interface PerformanceMemoryOptions {
+  /** 是否采集内存趋势，默认开启。 */
+  readonly enabled?: boolean
+}
+
+/**
+ * 性能堆栈采样配置。
+ *
+ * 该开关允许项目在 runtime-only 场景下关闭额外的错误堆栈收集，减少调试噪音。
+ */
+export interface PerformanceStackOptions {
+  /** 是否采集可用堆栈信息，默认开启。 */
+  readonly enabled?: boolean
+}
+
+/**
+ * 性能诊断配置。
+ *
+ * 配置层只负责约束采集窗口、保存目录和采样粒度，具体报告结构由运行时和 CDP 采集器统一输出。
+ */
+export interface PerformanceOptions {
+  /** 采集模式，`auto` 会优先使用 CDP，`hook` 只走 runtime，`cdp` 强制使用调试协议。 */
+  readonly mode?: PerformanceMode
+  /** 单次采集最长时长，避免长期占用性能采样资源。 */
+  readonly maxDurationMs?: number
+  /** 内存和事件循环延迟采样间隔，较短的间隔会增加少量采样开销。 */
+  readonly sampleIntervalMs?: number
+  /** 视为卡顿的任务阈值，默认 50ms。 */
+  readonly longTaskThresholdMs?: number
+  /** 原始 profile 和 heap 文件保存目录，默认保存在项目内 `.vite-mcp/performance`。 */
+  readonly saveDir?: string
+  /** 内存趋势采样开关。 */
+  readonly memory?: PerformanceMemoryOptions
+  /** 可用堆栈采样开关。 */
+  readonly stacks?: PerformanceStackOptions
+}
+
+/**
+ * 长任务记录。
+ *
+ * runtime 和 CDP 都会把自己的卡顿信号归一成同一结构，便于 MCP 工具解释“哪一段卡住了”。
+ */
+export interface LongTaskRecord {
+  /** 长任务开始时间，和采集窗口同一时间基准。 */
+  readonly startTime: number
+  /** 长任务持续时间，通常要与阈值比较后再计算 blocked time。 */
+  readonly durationMs: number
+  /** 任务名称或来源信息，若可用则方便定位具体脚本。 */
+  readonly name?: string
+  /** 浏览器暴露的 attribution 元信息，runtime 路径可能为空。 */
+  readonly attribution?: unknown[]
+  /** 对应堆栈 id，供 CDP profile 或错误堆栈关联。 */
+  readonly stackId?: string
+  /** 数据来源，用于区分浏览器观察条目、事件循环延迟和 CPU Profile 采样。 */
+  readonly source: 'longtask' | 'long-animation-frame' | 'cpu-profile' | 'event-loop-lag'
+}
+
+/**
+ * 内存采样点。
+ *
+ * 只表达使用量趋势，不假装 runtime-only 路径能拿到完整 heap 结构。
+ */
+export interface MemorySample {
+  /** 采样时间戳。 */
+  readonly timestamp: number
+  /** JS 堆已用大小。 */
+  readonly usedJSHeapSize?: number
+  /** JS 堆总大小。 */
+  readonly totalJSHeapSize?: number
+  /** JS 堆限制。 */
+  readonly jsHeapSizeLimit?: number
+  /** 同步采样得到的事件循环延迟。 */
+  readonly eventLoopLagMs?: number
+}
+
+/**
+ * 内存趋势摘要。
+ *
+ * 该结构不暴露对象引用链，只描述趋势是否持续增长。
+ */
+export interface MemorySummary {
+  /** 采样序列。 */
+  readonly samples: MemorySample[]
+  /** 初始堆使用量。 */
+  readonly initialUsedJSHeapSize?: number
+  /** 结束堆使用量。 */
+  readonly finalUsedJSHeapSize?: number
+  /** 峰值堆使用量。 */
+  readonly peakUsedJSHeapSize?: number
+  /** 结束与开始之间的差值。 */
+  readonly deltaUsedJSHeapSize?: number
+  /** 趋势结论。 */
+  readonly trend: 'stable' | 'growing' | 'unknown'
+}
+
+/**
+ * 可定位的堆栈帧摘要。
+ *
+ * CDP profile 会更完整，runtime-only 路径则通常只能补充错误栈里的少量函数名。
+ */
+export interface StackFrameSummary {
+  /** 函数名。 */
+  readonly functionName: string
+  /** 关联脚本 URL。 */
+  readonly url?: string
+  /** 行号。 */
+  readonly lineNumber?: number
+  /** 列号。 */
+  readonly columnNumber?: number
+  /** 自身耗时。 */
+  readonly selfTimeMs?: number
+  /** 总耗时。 */
+  readonly totalTimeMs?: number
+  /** 命中次数。 */
+  readonly hitCount?: number
+}
+
+/**
+ * 堆栈摘要。
+ *
+ * 原始 profile 可能过大，不适合直接放进 MCP 响应，因此这里同时保留文件路径和摘要帧列表。
+ */
+export interface StackSummary {
+  /** 热点帧列表。 */
+  readonly topFrames: StackFrameSummary[]
+  /** 原始 profile 文件路径。 */
+  readonly rawProfilePath?: string
+  /** 路径缺失或仅有 runtime 栈时的限制说明。 */
+  readonly limitation?: string
+}
+
+/**
+ * 性能摘要。
+ *
+ * 该结构用于快速判断页面是否存在明显卡顿，不要求用户先看完整原始数据。
+ */
+export interface PerformanceSummary {
+  /** 阻塞时间。 */
+  readonly blockedTimeMs: number
+  /** 长任务数量。 */
+  readonly longTaskCount: number
+  /** 最大任务耗时。 */
+  readonly maxTaskDurationMs: number
+  /** 平均任务耗时。 */
+  readonly averageTaskDurationMs?: number
+  /** 是否疑似卡顿。 */
+  readonly suspectedJank: boolean
+  /** 严重程度。 */
+  readonly severity: 'ok' | 'warning' | 'critical'
+}
+
+/**
+ * 性能报告。
+ *
+ * 该结构是 runtime 和 CDP 两条路径对外共同输出的最终结果，调用方只需要看 source 和 limitations 就能知道边界。
+ */
+export interface PerformanceReport {
+  /** 录制会话 id。 */
+  readonly recordingId: string
+  /** 页面 id。 */
+  readonly pageId: string
+  /** 数据来源。 */
+  readonly source: 'cdp' | 'hook'
+  /** 开始时间。 */
+  readonly startedAt: number
+  /** 结束时间。 */
+  readonly endedAt: number
+  /** 持续时间。 */
+  readonly durationMs: number
+  /** 快速摘要。 */
+  readonly summary: PerformanceSummary
+  /** 长任务列表。 */
+  readonly longTasks: LongTaskRecord[]
+  /** 内存摘要。 */
+  readonly memory?: MemorySummary
+  /** 堆栈摘要。 */
+  readonly stacks?: StackSummary
+  /** 原始产物。 */
+  readonly artifacts?: PerformanceArtifact[]
+  /** 能力限制说明。 */
+  readonly limitations: string[]
+}
+
+/**
+ * 性能产物。
+ *
+ * CDP 的原始 profile 与 heap snapshot 可能很大，因此用路径型产物表达而不是把内容直接塞进响应。
+ */
+export interface PerformanceArtifact {
+  /** 产物类型。 */
+  readonly kind: 'cpu-profile' | 'heap-snapshot'
+  /** 绝对路径。 */
+  readonly path: string
+  /** 相对项目根目录的路径。 */
+  readonly relativePath: string
+  /** 字节大小。 */
+  readonly byteLength: number
+  /** 产物来源，当前仅 CDP 会生成这类文件。 */
+  readonly source: 'cdp'
+}
+
+/**
+ * 活动中的性能录制会话。
+ *
+ * MCP 工具可以通过 recordingId 暂停和恢复同一条采集链路，避免多个采集彼此污染。
+ */
+export interface PerformanceSession {
+  /** 会话 id。 */
+  readonly recordingId: string
+  /** 页面 id。 */
+  readonly pageId: string
+  /** 数据来源。 */
+  readonly source: 'cdp' | 'hook'
+  /** 开始时间。 */
+  readonly startedAt: number
+  /** 是否采集内存。 */
+  readonly includeMemory: boolean
+  /** 是否采集堆栈。 */
+  readonly includeStacks: boolean
+  /** 采集模式。 */
+  readonly mode: PerformanceMode
+}
 
 /**
  * 控制台脚本执行配置。
@@ -367,6 +604,11 @@ export interface ResolvedVueMcpNextOptions {
     > &
       Omit<SnapdomScreenshotOptions, 'options' | 'plugins'>
   }
+  /** 已补齐默认值的性能配置。 */
+  readonly performance: Required<Omit<PerformanceOptions, 'memory' | 'stacks'>> & {
+    readonly memory: Required<PerformanceMemoryOptions>
+    readonly stacks: Required<PerformanceStackOptions>
+  }
 }
 
 /**
@@ -508,6 +750,10 @@ export interface VueMcpNextContext {
   readonly consoleRecords: RingBuffer<ConsoleRecord>
   /** Network 请求缓存，给 MCP Network 工具提供摘要和详情。 */
   readonly networkRecords: RingBuffer<NetworkRecord>
+  /** 性能报告缓存，给 get_performance_report 和最近会话查询使用。 */
+  readonly performanceReports: RingBuffer<PerformanceReport>
+  /** 活动中的性能录制会话，防止 start/stop 并发冲突。 */
+  readonly performanceSessions: Map<string, PerformanceSession>
   /** 可选 CDP 生命周期控制器，用于纯 CDP target 被发现后启动 Console 和 Network 监听。 */
   cdpLifecycle?: CdpLifecycleController
 }
@@ -603,4 +849,28 @@ export interface VueRuntimeRpc {
   }): void | Promise<void>
   /** 回传 Pinia store state。 */
   onPiniaInfoUpdated(event: string, data: unknown): void
+  /** 进行一次性能诊断采样。 */
+  recordPerformance(options: {
+    event: string
+    durationMs: number
+    includeMemory: boolean
+    includeStacks: boolean
+  }): void | Promise<void>
+  /** 回传一次性性能采样结果。 */
+  onPerformanceRecorded(event: string, data: unknown): void
+  /** 启动一段交互式性能录制。 */
+  startPerformanceRecording(options: {
+    event: string
+    includeMemory: boolean
+    includeStacks: boolean
+  }): void | Promise<void>
+  /** 回传录制启动结果。 */
+  onPerformanceRecordingStarted(event: string, data: unknown): void
+  /** 停止交互式性能录制。 */
+  stopPerformanceRecording(options: {
+    event: string
+    recordingId: string
+  }): void | Promise<void>
+  /** 回传录制结束结果。 */
+  onPerformanceRecordingStopped(event: string, data: unknown): void
 }
