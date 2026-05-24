@@ -22,25 +22,6 @@
 | Pinia 状态          | Vue Runtime Bridge   | Vue Runtime Bridge                | 返回 Pinia inspector tree 和 store state                  |
 | 性能诊断            | Runtime Hook         | CDP 优先，Hook 兜底               | 可分析主线程卡顿、内存趋势和堆栈，CDP 时可导出 profile    |
 
-### 浏览器存储
-
-浏览器存储工具组面向调试当前页面的运行时数据。`localStorage`、`sessionStorage` 和 `IndexedDB` 只作用于当前选中页面同源，避免跨站误操作。Cookie 在无 CDP 时通过 `document.cookie` 访问当前页面可见的同源条目；配置 CDP 后可查询浏览器级 Cookie，并能读取 `HttpOnly` 条目，但删除和清空时会跳过 `HttpOnly` 并返回跳过数量。
-
-| 资源 | Runtime Hook | CDP |
-| --- | --- | --- |
-| `localStorage` | 读 / 写 / 删 | 读 / 写 / 删 |
-| `sessionStorage` | 读 / 写 / 删 | 读 / 写 / 删 |
-| `IndexedDB` | 同源库和记录操作 | 同源库和记录操作 |
-| `Cookie` | 查询 / 写入 / 删除当前页面可见条目 | 查询 / 写入 / 删除非 `HttpOnly` 条目，`HttpOnly` 仅可查询 |
-
-相关 MCP 工具：
-
-- `list_storage`：列出当前页面同源存储和 Cookie；有 CDP 时补充浏览器级 Cookie
-- `get_storage_item`：读取指定 key、IndexedDB 记录或 Cookie
-- `set_storage_item`：写入 Web Storage、IndexedDB 记录或 Cookie
-- `delete_storage_item`：删除 Web Storage、IndexedDB 记录或 Cookie；`HttpOnly` Cookie 仅在 CDP 下可见且删除时会跳过
-- `clear_storage`：清空指定范围，Cookie 清空会跳过 `HttpOnly`
-
 ## 安装与使用
 
 ```bash
@@ -567,6 +548,25 @@ interface NetworkRecord {
 | `get_pinia_state`      | `pageId?`、`storeName`                                   | `data` | 获取 Pinia store state    |
 
 Vue 组件、Router、Pinia 是应用层语义，固定走 Vue Runtime Bridge，不用 CDP 替代。
+
+### 浏览器存储
+
+浏览器存储工具组面向调试当前页面的运行时数据。`localStorage`、`sessionStorage` 和 `IndexedDB` 只作用于当前选中页面同源，避免跨站误操作。Cookie 在无 CDP 时通过 `document.cookie` 访问当前页面可见的同源条目；配置 CDP 后可查询浏览器级 Cookie，并能读取 `HttpOnly` 条目，但删除和清空时会跳过 `HttpOnly` 并返回跳过数量。
+
+| 资源 | Runtime Hook | CDP |
+| --- | --- | --- |
+| `localStorage` | 读 / 写 / 删 | 读 / 写 / 删 |
+| `sessionStorage` | 读 / 写 / 删 | 读 / 写 / 删 |
+| `IndexedDB` | 同源库和记录操作 | 同源库和记录操作 |
+| `Cookie` | 查询 / 写入 / 删除当前页面可见条目 | 查询 / 写入 / 删除非 `HttpOnly` 条目，`HttpOnly` 仅可查询 |
+
+相关 MCP 工具：
+
+- `list_storage`：列出当前页面同源存储和 Cookie；有 CDP 时补充浏览器级 Cookie
+- `get_storage_item`：读取指定 key、IndexedDB 记录或 Cookie
+- `set_storage_item`：写入 Web Storage、IndexedDB 记录或 Cookie
+- `delete_storage_item`：删除 Web Storage、IndexedDB 记录或 Cookie；`HttpOnly` Cookie 仅在 CDP 下可见且删除时会跳过
+- `clear_storage`：清空指定范围，Cookie 清空会跳过 `HttpOnly`
 
 ## 本地验证
 

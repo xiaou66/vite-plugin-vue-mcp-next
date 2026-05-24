@@ -25,3 +25,5 @@ docs
 .codex
 .trae
 .mcp.json
+.claude
+.playwright-mcp
