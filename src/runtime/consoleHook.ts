@@ -29,13 +29,15 @@ export function installConsoleHook(options: ConsoleHookOptions): () => void {
   }
 
   const emit = (level: ConsoleRecord['level'], args: unknown[]): void => {
+    const serializedArgs = serializeConsoleArgs(args)
+
     options.send({
       id: nanoid(),
       pageId: options.pageId,
       source: 'hook',
       level,
-      message: args.map((arg) => safeStringify(arg)).join(' '),
-      args,
+      message: serializedArgs.join(' '),
+      args: serializedArgs,
       timestamp: Date.now()
     })
   }
@@ -65,4 +67,14 @@ export function installConsoleHook(options: ConsoleHookOptions): () => void {
     Object.assign(console, originalConsole)
     window.removeEventListener('error', onError)
   }
+}
+
+/**
+ * 将 Console 参数转换成 HMR 可传输的安全快照。
+ *
+ * Vue 组件、VNode 和 Proxy 对象经常带有循环引用，保留原始引用会让 Vite WebSocket
+ * 在序列化 payload 时失败；这里在浏览器侧提前裁剪，保证日志采集不会反过来打断页面热更新。
+ */
+function serializeConsoleArgs(args: unknown[]): string[] {
+  return args.map((arg) => safeStringify(arg))
 }
