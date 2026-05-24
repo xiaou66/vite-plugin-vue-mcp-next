@@ -7,6 +7,7 @@ import { registerEvaluateTools } from './tools/evaluate'
 import { registerNetworkTools } from './tools/network'
 import { registerPerformanceTools } from './tools/performance'
 import { registerPageTools } from './tools/pages'
+import { registerStorageTools } from './tools/storage'
 import { registerScreenshotTools } from './tools/screenshot'
 import { registerVueTools } from './tools/vue'
 
@@ -31,6 +32,7 @@ export function createMcpServer(
   registerConsoleTools(server, ctx)
   registerEvaluateTools(server, ctx)
   registerNetworkTools(server, ctx)
+  registerStorageTools(server, ctx)
   registerPerformanceTools(server, ctx)
   registerVueTools(server, ctx)
 

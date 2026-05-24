@@ -566,6 +566,83 @@ export interface RuntimeScreenshotResult {
 }
 
 /**
+ * 浏览器存储资源范围。
+ *
+ * Cookie 在 Runtime 侧只能访问当前页面可见的非 HttpOnly 值；CDP 可补足浏览器级查询能力。
+ */
+export type StorageScope = 'localStorage' | 'sessionStorage' | 'indexedDB' | 'cookie'
+
+/**
+ * 浏览器存储操作类型。
+ *
+ * 使用统一动作枚举可以让 MCP 工具层和 Runtime 桥接层共享同一套权限与错误边界。
+ */
+export type StorageAction = 'list' | 'get' | 'set' | 'delete' | 'clear'
+
+/**
+ * Runtime 存储桥接请求。
+ *
+ * Runtime 侧遵守浏览器同源策略，能处理 Web Storage、IndexedDB 以及 document.cookie 可见 Cookie；
+ * HttpOnly Cookie 必须依赖 CDP，不能通过页面脚本读取或删除。
+ */
+export interface RuntimeStorageRequest {
+  /** 并发请求隔离事件名，沿用现有 Runtime RPC 回传模型。 */
+  readonly event: string
+  /** 页面目标 ID，用于多页面场景下确认请求来源。 */
+  readonly pageId: string
+  /** 当前页面 origin，Runtime 侧用它拒绝跨源误用。 */
+  readonly origin: string
+  /** 当前存储操作。 */
+  readonly action: StorageAction
+  /** 当前存储资源范围。 */
+  readonly scope: StorageScope
+  /** Web Storage key 或 IndexedDB key 的字符串表达。 */
+  readonly key?: string
+  /** 写入值的 JSON 字符串表达，Runtime 侧按资源类型解释。 */
+  readonly value?: string
+  /** IndexedDB 数据库名。 */
+  readonly databaseName?: string
+  /** IndexedDB object store 名称。 */
+  readonly objectStoreName?: string
+  /** IndexedDB index 名称，首版只作为查询边界保留。 */
+  readonly indexName?: string
+  /** Cookie 操作参数，Runtime 只使用 document.cookie 可表达的同源字段。 */
+  readonly cookie?: {
+    readonly name: string
+    readonly value?: string
+    readonly domain?: string
+    readonly path?: string
+    readonly url?: string
+    readonly httpOnly?: boolean
+    readonly secure?: boolean
+    readonly sameSite?: 'strict' | 'lax' | 'none'
+    readonly expires?: number
+  }
+}
+
+/**
+ * Runtime 存储桥接结果。
+ *
+ * 结果显式携带 source，避免调用方把页面同源能力误认为浏览器级 CDP 能力。
+ */
+export interface RuntimeStorageResult {
+  /** 是否成功，失败时 error 必须说明边界或底层异常。 */
+  readonly ok: boolean
+  /** 存储访问来源，调用方可据此区分页面同源能力和浏览器协议能力。 */
+  readonly source: 'hook' | 'cdp'
+  /** 实际执行的操作类型。 */
+  readonly action: StorageAction
+  /** 实际访问的存储资源范围。 */
+  readonly scope: StorageScope
+  /** 成功时返回的结构化数据。 */
+  readonly data?: unknown
+  /** 能力限制说明，例如 Cookie 仅 CDP 可用。 */
+  readonly limitations?: string[]
+  /** 失败原因。 */
+  readonly error?: string
+}
+
+/**
  * 解析后的插件配置。
  *
  * 内部模块只读取该类型，避免每个模块重复处理可选配置和默认值。
@@ -811,6 +888,10 @@ export interface VueRuntimeRpc {
   takeScreenshot(options: RuntimeScreenshotRequest): void | Promise<void>
   /** 回传 snapdom 截图结果，使用事件名隔离并发 MCP 请求。 */
   onScreenshotTaken(event: string, data: RuntimeScreenshotResult): void
+  /** 访问同源浏览器存储，用于无 CDP 配置时提供 Web Storage 和 IndexedDB 兜底。 */
+  manageStorage(options: RuntimeStorageRequest): void | Promise<void>
+  /** 回传 Runtime 存储访问结果，使用事件名隔离并发 MCP 请求。 */
+  onStorageUpdated(event: string, data: RuntimeStorageResult): void
   /** 读取 Vue component inspector tree，用于 `get_component_tree` 工具。 */
   getInspectorTree(options: {
     event: string

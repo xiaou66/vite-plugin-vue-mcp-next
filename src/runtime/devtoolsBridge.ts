@@ -2,6 +2,7 @@ import type { VueRuntimeRpc } from '../types'
 import { createDomSnapshot, queryDomElements } from './domSnapshot'
 import { evaluateExpression } from './evaluateExpression'
 import { takeRuntimeScreenshot } from './screenshot'
+import { createRuntimeStorageBridge } from './storageBridge'
 
 /**
  * 创建通用 Runtime DevTools RPC。
@@ -23,6 +24,8 @@ export function createRuntimeDevtoolsRpc(
   | 'onEvaluateScriptUpdated'
   | 'takeScreenshot'
   | 'onScreenshotTaken'
+  | 'manageStorage'
+  | 'onStorageUpdated'
 > {
   return {
     getDomTree(options) {
@@ -77,6 +80,25 @@ export function createRuntimeDevtoolsRpc(
         })
       }
     },
-    onScreenshotTaken: () => undefined
+    onScreenshotTaken: () => undefined,
+    async manageStorage(options) {
+      const bridge = createRuntimeStorageBridge({
+        origin: window.location.origin,
+        localStorage: window.localStorage,
+        sessionStorage: window.sessionStorage,
+        indexedDB: window.indexedDB,
+        cookie: {
+          get: () => window.document.cookie,
+          set: (value) => {
+            window.document.cookie = value
+          }
+        }
+      })
+      getRpc().onStorageUpdated(
+        options.event,
+        await bridge.manageStorage(options)
+      )
+    },
+    onStorageUpdated: () => undefined
   }
 }

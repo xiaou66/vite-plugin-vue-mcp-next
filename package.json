@@ -1,6 +1,6 @@
 {
   "name": "@xiaou66/vite-plugin-vue-mcp-next",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Runtime DevTools MCP plugin for Vite and Vue development.",
   "type": "module",
   "private": false,
