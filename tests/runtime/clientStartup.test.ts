@@ -55,7 +55,10 @@ describe('startRuntimeClient', () => {
     vi.stubGlobal('window', {
       location: { href: 'http://localhost:3456/' },
       innerWidth: 1280,
-      innerHeight: 720
+      innerHeight: 720,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      sessionStorage: undefined
     })
     vi.stubGlobal('document', {
       title: 'Test page',
@@ -108,5 +111,64 @@ describe('startRuntimeClient', () => {
 
     expect(arg.pageId).toBe('runtime-test')
     expect(typeof arg.send).toBe('function')
+  })
+
+  it('sends runtime heartbeat and disconnect signals around page unload', async () => {
+    vi.useFakeTimers()
+    try {
+      const listeners = new Map<string, (event: Event) => void>()
+      const addEventListener = vi.fn(
+        (name: string, handler: (event: Event) => void) => {
+          listeners.set(name, handler)
+        }
+      )
+      const hot = { send: vi.fn() }
+
+      createHotContext.mockResolvedValue(hot)
+      vi.stubGlobal('window', {
+        location: { href: 'http://localhost:3456/' },
+        innerWidth: 1280,
+        innerHeight: 720,
+        addEventListener,
+        removeEventListener: vi.fn(),
+        sessionStorage: undefined
+      })
+
+      const { startRuntimeClient } = await import('../../src/runtime/client')
+      await startRuntimeClient()
+
+      expect(addEventListener).toHaveBeenCalledWith(
+        'pagehide',
+        expect.any(Function),
+        { once: true }
+      )
+      expect(addEventListener).toHaveBeenCalledWith(
+        'beforeunload',
+        expect.any(Function),
+        { once: true }
+      )
+
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(hot.send).toHaveBeenCalledWith(
+        'vite-plugin-vue-mcp-next:heartbeat',
+        expect.objectContaining({
+          pageId: 'runtime-test'
+        })
+      )
+
+      listeners.get('pagehide')?.(new Event('pagehide'))
+      expect(hot.send).toHaveBeenCalledWith(
+        'vite-plugin-vue-mcp-next:page-disconnected',
+        expect.objectContaining({
+          pageId: 'runtime-test'
+        })
+      )
+
+      const sendCallCount = hot.send.mock.calls.length
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(hot.send.mock.calls.length).toBe(sendCallCount)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
