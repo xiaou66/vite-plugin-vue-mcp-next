@@ -743,8 +743,8 @@ export interface ConsoleRecord {
   readonly level: 'log' | 'info' | 'warn' | 'error' | 'debug'
   /** 面向 AI 的主要文本内容，避免每次都解析复杂 args。 */
   readonly message: string
-  /** 原始参数快照，用于需要还原对象日志时提供结构化信息。 */
-  readonly args?: unknown[]
+  /** 已序列化参数快照，避免浏览器对象循环引用破坏 HMR 日志传输。 */
+  readonly args?: string[]
   /** 错误堆栈，用于定位运行时异常的来源文件和调用链。 */
   readonly stack?: string
   /** 记录时间戳，用于还原日志与网络请求、用户操作之间的先后关系。 */

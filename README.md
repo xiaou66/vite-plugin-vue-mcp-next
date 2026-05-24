@@ -487,7 +487,7 @@ interface ConsoleRecord {
   source: 'cdp' | 'hook'
   level: 'log' | 'info' | 'warn' | 'error' | 'debug'
   message: string
-  args?: unknown[]
+  args?: string[]
   stack?: string
   timestamp: number
 }

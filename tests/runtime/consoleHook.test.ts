@@ -70,6 +70,34 @@ describe('console hook', () => {
     expect(record.message).toContain('hello')
   })
 
+  it('serializes circular console arguments before forwarding records', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const component: { vnode?: { component: unknown } } = {}
+    const vnode = { component }
+    component.vnode = vnode
+    const records: unknown[] = []
+    const restore = installConsoleHook({
+      pageId: 'runtime-1',
+      send(record) {
+        records.push(record)
+      }
+    })
+
+    console.warn('vue warn', { component })
+    restore()
+
+    const [record] = records as Array<{
+      message: string
+      args?: string[]
+    }>
+    expect(() => JSON.stringify(record)).not.toThrow()
+    expect(record.message).toContain('[Circular]')
+    expect(record.args).toEqual([
+      'vue warn',
+      '{"component":{"vnode":{"component":"[Circular]"}}}'
+    ])
+  })
+
   it('captures unhandled errors', () => {
     const records: unknown[] = []
     const restore = installConsoleHook({
