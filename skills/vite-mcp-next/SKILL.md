@@ -33,6 +33,8 @@ Do not use it for static code-only questions where reading files is enough.
 | Inspect requests | `get_network_requests` |
 | Inspect one request deeply | `get_network_request_detail` |
 | Reset old request records | `clear_network_requests` |
+| Inspect browser storage | `list_storage`, `get_storage_item` |
+| Mutate browser storage | `set_storage_item`, `delete_storage_item`, `clear_storage` |
 | Inspect Vue component tree | `get_component_tree` |
 | Inspect one component state | `get_component_state` |
 | Edit runtime component state | `edit_component_state` |
@@ -48,12 +50,14 @@ Do not use it for static code-only questions where reading files is enough.
 3. For visual verification, call `take_screenshot` and report whether `source` is `cdp` or `snapdom`.
 4. For browser errors, call `get_console_logs`.
 5. For API behavior, call `get_network_requests`, then `get_network_request_detail` for the relevant id.
-6. For Vue-specific behavior, call `get_component_tree`, `get_component_state`, `get_router_info`, `get_pinia_tree`, or `get_pinia_state`.
+6. For storage questions, call `list_storage` first, then `get_storage_item`, `set_storage_item`, `delete_storage_item`, or `clear_storage` for the selected scope.
+7. For Vue-specific behavior, call `get_component_tree`, `get_component_state`, `get_router_info`, `get_pinia_tree`, or `get_pinia_state`.
 
 ## Channel Boundaries
 
 - DOM, Console, Network, and Screenshot should use CDP when available.
-- Without CDP, DOM, Console, and Network fall back to Runtime Hook; screenshots fall back to snapdom.
+- Without CDP, DOM, Console, Network, and same-origin storage fall back to Runtime Hook; screenshots fall back to snapdom.
+- Cookie storage is CDP-only. `HttpOnly` cookies can be read through CDP, but deletion and clear operations skip them.
 - Vue component, Router, and Pinia tools always use Vue Runtime Bridge. Do not replace them with CDP DOM inspection when Vue semantic state is needed.
 
 ## Risk Boundaries
@@ -61,6 +65,7 @@ Do not use it for static code-only questions where reading files is enough.
 - `evaluate_script` is disabled unless the project sets `runtime.evaluate.enabled: true`.
 - Prefer `evaluate_script` for read-only diagnosis. Do not mutate page state unless the user asked for it.
 - `edit_component_state` mutates runtime Vue state. Use it only when state editing is the explicit goal.
+- Storage mutation tools change browser state. Use them only when the user explicitly asks to write, delete, or clear storage.
 - Network data can include token, cookie, or authorization values. Do not write sensitive values into source code, docs, commits, or final replies.
 
 ## Failure Handling

@@ -58,7 +58,7 @@ describe('vueMcpNext plugin shell', () => {
     )
   })
 
-  it('registers the performance tools during plugin boot', async () => {
+  it('registers the performance and storage tools during plugin boot', async () => {
     const { vueMcpNext } = await import('../../src')
     const plugin = vueMcpNext()
     const fakeServer = {
@@ -90,7 +90,12 @@ describe('vueMcpNext plugin shell', () => {
         'start_performance_recording',
         'stop_performance_recording',
         'get_performance_report',
-        'take_heap_snapshot'
+        'take_heap_snapshot',
+        'list_storage',
+        'get_storage_item',
+        'set_storage_item',
+        'delete_storage_item',
+        'clear_storage'
       ])
     )
   })
