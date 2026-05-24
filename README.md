@@ -15,7 +15,7 @@
 | Console 日志        | Runtime Hook         | CDP 优先，Hook 兜底               | 采集 `log/info/warn/error/debug` 和运行时日志             |
 | Evaluate 控制台执行 | Runtime Hook         | CDP 优先，Hook 兜底               | 默认关闭，必须显式开启                                    |
 | Network 请求        | Runtime Hook         | CDP 优先，Hook 兜底               | 返回请求 URL、query、body、status、headers、response body |
-| 浏览器存储          | Runtime Hook         | CDP 优先，Hook 兜底               | 访问同源 Web Storage、IndexedDB 和 CDP Cookie             |
+| 浏览器存储          | Runtime Hook         | CDP 优先，Hook 兜底               | 访问同源 Web Storage、IndexedDB；Cookie 在无 CDP 时回退到 `document.cookie` |
 | Vue 组件树          | Vue Runtime Bridge   | Vue Runtime Bridge                | Vue 专属语义不走 CDP                                      |
 | Vue 组件状态        | Vue Runtime Bridge   | Vue Runtime Bridge                | 读取和编辑组件状态                                        |
 | Router 信息         | Vue Runtime Bridge   | Vue Runtime Bridge                | 返回当前路由和路由表                                      |
@@ -24,21 +24,21 @@
 
 ### 浏览器存储
 
-浏览器存储工具组面向调试当前页面的运行时数据。`localStorage`、`sessionStorage` 和 `IndexedDB` 只作用于当前选中页面同源，避免跨站误操作。Cookie 是浏览器级资源，只在配置 CDP 后可查询和写入；`HttpOnly` Cookie 可以查询，但删除和清空时会跳过并返回跳过数量。
+浏览器存储工具组面向调试当前页面的运行时数据。`localStorage`、`sessionStorage` 和 `IndexedDB` 只作用于当前选中页面同源，避免跨站误操作。Cookie 在无 CDP 时通过 `document.cookie` 访问当前页面可见的同源条目；配置 CDP 后可查询浏览器级 Cookie，并能读取 `HttpOnly` 条目，但删除和清空时会跳过 `HttpOnly` 并返回跳过数量。
 
 | 资源 | Runtime Hook | CDP |
 | --- | --- | --- |
 | `localStorage` | 读 / 写 / 删 | 读 / 写 / 删 |
 | `sessionStorage` | 读 / 写 / 删 | 读 / 写 / 删 |
 | `IndexedDB` | 同源库和记录操作 | 同源库和记录操作 |
-| `Cookie` | 不支持 | 查询 / 写入 / 删除非 `HttpOnly` 条目 |
+| `Cookie` | 查询 / 写入 / 删除当前页面可见条目 | 查询 / 写入 / 删除非 `HttpOnly` 条目，`HttpOnly` 仅可查询 |
 
 相关 MCP 工具：
 
-- `list_storage`：列出当前页面同源存储和 CDP Cookie
+- `list_storage`：列出当前页面同源存储和 Cookie；有 CDP 时补充浏览器级 Cookie
 - `get_storage_item`：读取指定 key、IndexedDB 记录或 Cookie
 - `set_storage_item`：写入 Web Storage、IndexedDB 记录或 Cookie
-- `delete_storage_item`：删除 Web Storage、IndexedDB 记录或非 `HttpOnly` Cookie
+- `delete_storage_item`：删除 Web Storage、IndexedDB 记录或 Cookie；`HttpOnly` Cookie 仅在 CDP 下可见且删除时会跳过
 - `clear_storage`：清空指定范围，Cookie 清空会跳过 `HttpOnly`
 
 ## 安装与使用
