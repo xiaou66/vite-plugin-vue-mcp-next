@@ -1,5 +1,8 @@
 import { nanoid } from 'nanoid'
-import { safeStringify } from '../shared/serialization'
+import {
+  createBoundedPreview,
+  safeStringify
+} from '../shared/serialization'
 import type { ConsoleRecord } from '../types'
 
 /**
@@ -35,7 +38,7 @@ export function installConsoleHook(options: ConsoleHookOptions): () => void {
       source: 'hook',
       level,
       message: args.map((arg) => safeStringify(arg)).join(' '),
-      args,
+      args: args.map((arg) => createBoundedPreview(arg)),
       timestamp: Date.now()
     })
   }

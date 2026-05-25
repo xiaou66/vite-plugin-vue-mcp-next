@@ -86,4 +86,58 @@ describe('console hook', () => {
       expect.objectContaining({ level: 'error', message: 'boom' })
     )
   })
+
+  it('sends bounded argument previews instead of raw circular objects', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const component: { name: string; vnode?: unknown } = { name: 'TaskList' }
+    const vnode = { component }
+    component.vnode = vnode
+    const records: unknown[] = []
+    const restore = installConsoleHook({
+      pageId: 'runtime-1',
+      send(record) {
+        records.push(record)
+        JSON.stringify(record)
+      }
+    })
+
+    console.warn('component', component)
+    restore()
+
+    const [record] = records as Array<{ args: unknown[]; message: string }>
+    expect(record.message).toContain('component')
+    expect(record.args).toEqual([
+      'component',
+      {
+        name: 'TaskList',
+        vnode: {
+          component: '[Circular]'
+        }
+      }
+    ])
+    expect(record.args[1]).not.toBe(component)
+  })
+
+  it('does not deeply traverse large console arguments', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const records: unknown[] = []
+    const value: Record<string, unknown> = {}
+    Array.from({ length: 40 }).forEach((_, index) => {
+      value[`key${String(index)}`] = index
+    })
+    const restore = installConsoleHook({
+      pageId: 'runtime-1',
+      send(record) {
+        records.push(record)
+      }
+    })
+
+    console.warn(value)
+    restore()
+
+    const [record] = records as Array<{ args: unknown[] }>
+    expect(record.args[0]).toMatchObject({
+      '[Truncated]': '20 keys omitted'
+    })
+  })
 })

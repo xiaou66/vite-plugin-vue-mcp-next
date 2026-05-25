@@ -20,6 +20,23 @@ import { createRuntimeDevtoolsRpc } from './devtoolsBridge'
 const PINIA_INSPECTOR_ID = 'pinia'
 const COMPONENTS_INSPECTOR_ID = 'components'
 const COMPONENT_HIGHLIGHT_DURATION = 5000
+const INSPECTOR_TREE_MAX_DEPTH = 20
+const INSPECTOR_TREE_MAX_NODES = 500
+const INSPECTOR_TREE_MAX_CHILDREN = 200
+const INSPECTOR_TREE_MAX_TAGS = 20
+
+const INSPECTOR_NODE_FIELDS = [
+  'id',
+  'label',
+  'name',
+  'inactive',
+  'isFragment',
+  'autoOpen'
+] as const
+
+interface InspectorTreeBudget {
+  visited: number
+}
 
 let highlightComponentTimeout: ReturnType<typeof setTimeout> | undefined
 
@@ -54,11 +71,125 @@ export function installVueBridge(hot: ViteHotContext): void {
 }
 
 /**
+ * 投影 inspector tree 列表。
+ *
+ * Pinia tree 返回数组，不能把原始 DevTools 节点直接交给 RPC；只保留 MCP 需要展示的节点字段。
+ */
+function projectInspectorTreeList(value: unknown): unknown[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const budget: InspectorTreeBudget = { visited: 0 }
+  return value.map((node) => projectInspectorNode(node, budget, 0))
+}
+
+/**
+ * 投影单个 inspector tree 节点。
+ *
+ * 该函数只读取白名单字段和有限 children，避免展开 Vue component、vnode 或 DevTools 内部对象。
+ */
+function projectInspectorNode(
+  value: unknown,
+  budget: InspectorTreeBudget,
+  depth: number
+): unknown {
+  if (!value || typeof value !== 'object') {
+    return value
+  }
+
+  if (
+    budget.visited >= INSPECTOR_TREE_MAX_NODES ||
+    depth >= INSPECTOR_TREE_MAX_DEPTH
+  ) {
+    return '[Truncated]'
+  }
+
+  budget.visited += 1
+  const result: Record<string, unknown> = {}
+
+  INSPECTOR_NODE_FIELDS.forEach((field) => {
+    const valueField = readInspectorField(value, field)
+    if (valueField.ok && isInspectorPrimitive(valueField.value)) {
+      result[field] = valueField.value
+    }
+  })
+
+  const tags = readInspectorField(value, 'tags')
+  if (tags.ok && Array.isArray(tags.value)) {
+    result.tags = tags.value
+      .slice(0, INSPECTOR_TREE_MAX_TAGS)
+      .map(projectInspectorTag)
+  }
+
+  const children = readInspectorField(value, 'children')
+  if (children.ok && Array.isArray(children.value)) {
+    const projectedChildren = children.value
+      .slice(0, INSPECTOR_TREE_MAX_CHILDREN)
+      .map((child) => projectInspectorNode(child, budget, depth + 1))
+
+    if (children.value.length > INSPECTOR_TREE_MAX_CHILDREN) {
+      projectedChildren.push('[Truncated]')
+    }
+
+    result.children = projectedChildren
+  }
+
+  return result
+}
+
+/**
+ * 投影 inspector tag。
+ *
+ * tag 只用于展示节点状态，保留浅层基础字段即可；复杂对象字段会被忽略。
+ */
+function projectInspectorTag(value: unknown): unknown {
+  if (!value || typeof value !== 'object') {
+    return value
+  }
+
+  const result: Record<string, unknown> = {}
+  Object.keys(value)
+    .filter((key) => key !== 'toJSON')
+    .slice(0, 8)
+    .forEach((key) => {
+      const field = readInspectorField(value, key)
+      if (field.ok && isInspectorPrimitive(field.value)) {
+        result[key] = field.value
+      }
+    })
+
+  return result
+}
+
+function readInspectorField(
+  value: object,
+  key: string
+): { ok: true; value: unknown } | { ok: false } {
+  try {
+    return { ok: true, value: (value as Record<string, unknown>)[key] }
+  } catch {
+    return { ok: false }
+  }
+}
+
+function isInspectorPrimitive(value: unknown): boolean {
+  return (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value === null
+  )
+}
+
+/**
  * 创建浏览器端 Vue RPC 实现。
  *
  * 函数单独拆分可以让每个 Vue 能力的错误边界集中处理，避免 MCP 请求因为某个组件缺失而崩溃。
  */
-function createClientVueRuntimeRpc(getRpc: () => VueRuntimeRpc): VueRuntimeRpc {
+export function createClientVueRuntimeRpc(
+  getRpc: () => VueRuntimeRpc
+): VueRuntimeRpc {
   return {
     ...createRuntimeDevtoolsRpc(getRpc),
     async getInspectorTree(query) {
@@ -66,7 +197,10 @@ function createClientVueRuntimeRpc(getRpc: () => VueRuntimeRpc): VueRuntimeRpc {
         inspectorId: COMPONENTS_INSPECTOR_ID,
         filter: query.componentName ?? ''
       })
-      getRpc().onInspectorTreeUpdated(query.event, inspectorTree[0])
+      getRpc().onInspectorTreeUpdated(
+        query.event,
+        projectInspectorNode(inspectorTree[0], { visited: 0 }, 0)
+      )
     },
     onInspectorTreeUpdated: () => undefined,
     async getInspectorState(query) {
@@ -134,7 +268,10 @@ function createClientVueRuntimeRpc(getRpc: () => VueRuntimeRpc): VueRuntimeRpc {
           filter: ''
         })
       )
-      getRpc().onPiniaTreeUpdated(query.event, inspectorTree)
+      getRpc().onPiniaTreeUpdated(
+        query.event,
+        projectInspectorTreeList(inspectorTree)
+      )
     },
     onPiniaTreeUpdated: () => undefined,
     async getPiniaState(query) {
