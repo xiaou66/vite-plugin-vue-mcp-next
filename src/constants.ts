@@ -66,7 +66,8 @@ export const MCP_TOOL_NAMES = {
   highlightComponent: 'highlight_component',
   getRouterInfo: 'get_router_info',
   getPiniaTree: 'get_pinia_tree',
-  getPiniaState: 'get_pinia_state'
+  getPiniaState: 'get_pinia_state',
+  getElementContext: 'get_element_context'
 } as const
 
 /** 虚拟模块 ID 集中管理，便于注入逻辑和测试复用。 */
@@ -120,6 +121,9 @@ export const DEFAULT_RUNTIME_PAGE_HEARTBEAT_TIMEOUT_MS = 45_000
 /** Runtime 页面兜底扫描间隔，和失活阈值保持一致以减少无意义轮询。 */
 export const DEFAULT_RUNTIME_PAGE_HEARTBEAT_SCAN_INTERVAL_MS = 45_000
 
+/** 元素选择器轻提示默认时长，足够用户看清复制结果且不长期遮挡页面。 */
+export const DEFAULT_ELEMENT_PICKER_TOAST_DURATION_MS = 2_200
+
 /** 安全默认值，优先保证调试工具不会默认暴露危险能力。 */
 export const DEFAULT_OPTIONS: ResolvedVueMcpNextOptions = {
   mcpPath: DEFAULT_MCP_PATH,
@@ -138,6 +142,16 @@ export const DEFAULT_OPTIONS: ResolvedVueMcpNextOptions = {
   },
   skill: {
     autoConfig: true
+  },
+  elementPicker: {
+    enabled: true,
+    shortcut: {
+      altKey: true,
+      shiftKey: true,
+      metaKey: false,
+      ctrlKey: false
+    },
+    toastDurationMs: DEFAULT_ELEMENT_PICKER_TOAST_DURATION_MS
   },
   runtime: {
     mode: 'auto',
@@ -234,6 +248,14 @@ export function mergeOptions(
     skill: {
       ...DEFAULT_OPTIONS.skill,
       ...options.skill
+    },
+    elementPicker: {
+      ...DEFAULT_OPTIONS.elementPicker,
+      ...options.elementPicker,
+      shortcut: {
+        ...DEFAULT_OPTIONS.elementPicker.shortcut,
+        ...options.elementPicker?.shortcut
+      }
     },
     runtime: {
       ...DEFAULT_OPTIONS.runtime,

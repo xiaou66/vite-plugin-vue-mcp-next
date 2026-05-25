@@ -99,4 +99,34 @@ describe('vueMcpNext plugin shell', () => {
       ])
     )
   })
+
+  it('injects source ids through the plugin transform hook', async () => {
+    const { vueMcpNext } = await import('../../src')
+    const plugin = vueMcpNext()
+
+    const configResolved = plugin.configResolved as unknown as (
+      config: unknown
+    ) => void
+    const transform = plugin.transform as unknown as (
+      this: unknown,
+      code: string,
+      id: string
+    ) => unknown
+
+    configResolved({
+      root: '/repo/app'
+    })
+
+    const result = transform.call(
+      {},
+      ['<template>', '  <main>Target</main>', '</template>'].join('\n'),
+      '/repo/app/src/App.vue'
+    )
+    const code =
+      result && typeof result === 'object' && 'code' in result
+        ? String(result.code)
+        : String(result)
+
+    expect(code).toContain('data-v-mcp-id="src/App.vue:2:3"')
+  })
 })

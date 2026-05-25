@@ -24,6 +24,7 @@ Do not use it for static code-only questions where reading files is enough.
 | Need | Tool |
 | --- | --- |
 | Find available pages and targets | `list_pages` |
+| Inspect a copied element ID | `get_element_context` |
 | Refresh the current page | `reload_page` |
 | Inspect DOM structure | `get_dom_tree` |
 | Find elements by selector | `query_dom` |
@@ -46,12 +47,13 @@ Do not use it for static code-only questions where reading files is enough.
 ## Tool Order
 
 1. Call `list_pages` first. Confirm the page, runtime connection, and any `cdp:*` target.
-2. For layout or content questions, call `get_dom_tree` or `query_dom`.
-3. For visual verification, call `take_screenshot` and report whether `source` is `cdp` or `snapdom`.
-4. For browser errors, call `get_console_logs`.
-5. For API behavior, call `get_network_requests`, then `get_network_request_detail` for the relevant id.
-6. For storage questions, call `list_storage` first, then `get_storage_item`, `set_storage_item`, `delete_storage_item`, or `clear_storage` for the selected scope.
-7. For Vue-specific behavior, call `get_component_tree`, `get_component_state`, `get_router_info`, `get_pinia_tree`, or `get_pinia_state`.
+2. If the user provides an `elementId` such as `src/App.vue:12:8`, call `get_element_context` before editing source.
+3. For layout or content questions, call `get_dom_tree` or `query_dom`.
+4. For visual verification, call `take_screenshot` and report whether `source` is `cdp` or `snapdom`.
+5. For browser errors, call `get_console_logs`.
+6. For API behavior, call `get_network_requests`, then `get_network_request_detail` for the relevant id.
+7. For storage questions, call `list_storage` first, then `get_storage_item`, `set_storage_item`, `delete_storage_item`, or `clear_storage` for the selected scope.
+8. For Vue-specific behavior, call `get_component_tree`, `get_component_state`, `get_router_info`, `get_pinia_tree`, or `get_pinia_state`.
 
 ## Channel Boundaries
 
@@ -65,6 +67,7 @@ Do not use it for static code-only questions where reading files is enough.
 - `evaluate_script` is disabled unless the project sets `runtime.evaluate.enabled: true`.
 - Prefer `evaluate_script` for read-only diagnosis. Do not mutate page state unless the user asked for it.
 - `edit_component_state` mutates runtime Vue state. Use it only when state editing is the explicit goal.
+- `get_element_context` returns `editable: false` for third-party packages. Do not edit `node_modules`; modify project usage code instead.
 - Storage mutation tools change browser state. Use them only when the user explicitly asks to write, delete, or clear storage.
 - Network data can include token, cookie, or authorization values. Do not write sensitive values into source code, docs, commits, or final replies.
 

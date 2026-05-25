@@ -21,6 +21,8 @@ export interface VueMcpNextOptions {
   readonly mcpClients?: McpClientConfigOptions
   /** AI 使用指南自动安装配置，用于让 AI 客户端知道何时以及如何使用本 MCP。 */
   readonly skill?: SkillConfigOptions
+  /** 页面元素选择器配置，用于让用户复制可被 MCP 解析的 elementId。 */
+  readonly elementPicker?: ElementPickerOptions
   /** 非 HTML 入口的运行时脚本注入点，用于兼容不直接使用 `index.html` 的项目。 */
   readonly appendTo?: string | RegExp
   /** 通用 DevTools 能力配置；Vue 专属能力不受该配置影响，始终走 Vue Runtime Bridge。 */
@@ -37,6 +39,95 @@ export interface VueMcpNextOptions {
   readonly screenshot?: ScreenshotOptions
   /** 性能诊断配置；默认用轻量 Runtime 采样，配置 CDP 后可升级为 CPU Profile 与 Heap Snapshot。 */
   readonly performance?: PerformanceOptions
+}
+
+/**
+ * 元素选择器快捷键配置。
+ *
+ * 默认使用 Alt/Option + Shift，目标是在开发态降低普通点击误触；
+ * 项目已有快捷键冲突时，可以只覆盖冲突字段而保留其他默认键位。
+ */
+export interface ElementPickerShortcut {
+  /** 是否要求 Alt/Option 键，默认开启以复用 code-inspector 的选择心智。 */
+  readonly altKey?: boolean
+  /** 是否要求 Shift 键，默认开启以降低普通点击误触概率。 */
+  readonly shiftKey?: boolean
+  /** 是否要求 Meta 键，默认关闭，项目可按自身快捷键冲突覆盖。 */
+  readonly metaKey?: boolean
+  /** 是否要求 Ctrl 键，默认关闭，适合 Windows/Linux 项目自定义。 */
+  readonly ctrlKey?: boolean
+}
+
+/**
+ * 页面元素选择器配置。
+ *
+ * 选择器只影响浏览器 runtime 的交互层；关闭它不会影响 MCP 对已有
+ * `elementId` 的静态解析能力。
+ */
+export interface ElementPickerOptions {
+  /** 是否启用页面内元素选择器；关闭后仍保留 MCP 静态 ID 解析能力。 */
+  readonly enabled?: boolean
+  /** 进入选择模式的组合键配置。 */
+  readonly shortcut?: ElementPickerShortcut
+  /** 复制成功或失败后的轻提示展示时长。 */
+  readonly toastDurationMs?: number
+}
+
+/**
+ * 浏览器 runtime 启动参数。
+ *
+ * 该配置由 Vite 虚拟模块序列化注入，避免 runtime 重新推导用户配置。
+ */
+export interface RuntimeClientOptions {
+  /** 浏览器 runtime 需要的元素选择器配置，由 Vite 虚拟模块序列化注入。 */
+  readonly elementPicker: Required<Omit<ElementPickerOptions, 'shortcut'>> & {
+    readonly shortcut: Required<ElementPickerShortcut>
+  }
+  /** Vite 项目根目录，用于把 Vue runtime 暴露的绝对组件路径转回项目相对路径。 */
+  readonly projectRoot?: string
+}
+
+/**
+ * 元素上下文查询结果。
+ *
+ * 成功结果优先给出可编辑源码位置；第三方包和 runtime 兜底会通过
+ * `editable` 与 `limitations` 明确告诉 AI 能做什么、不能做什么。
+ */
+export type ElementContextResult =
+  | {
+      readonly ok: true
+      readonly elementId: string
+      readonly editable: boolean
+      readonly codeLocation?: {
+        readonly file: string
+        readonly line: number
+        readonly column: number
+      }
+      readonly packageLocation?: {
+        readonly packageName: string
+        readonly entryFile: string
+      }
+      readonly component?: unknown
+      readonly dom?: unknown
+      readonly limitations: string[]
+    }
+  | {
+      readonly ok: false
+      readonly elementId: string
+      readonly error: string
+      readonly limitations: string[]
+    }
+
+/**
+ * runtime 元素上下文请求。
+ *
+ * event 用于复用现有 runtime RPC 的一次性回传模型，避免并发请求串包。
+ */
+export interface RuntimeElementContextRequest {
+  /** 并发请求隔离事件名，复用现有 runtime RPC 回传模型。 */
+  readonly event: string
+  /** 用户复制给 AI 的元素标识。 */
+  readonly elementId: string
 }
 
 /**
@@ -660,6 +751,10 @@ export interface ResolvedVueMcpNextOptions {
   readonly mcpClients: Required<McpClientConfigOptions>
   /** 已补齐默认值的 AI 使用指南自动安装配置。 */
   readonly skill: Required<SkillConfigOptions>
+  /** 已补齐默认值的页面元素选择器配置。 */
+  readonly elementPicker: Required<Omit<ElementPickerOptions, 'shortcut'>> & {
+    readonly shortcut: Required<ElementPickerShortcut>
+  }
   /** 非 HTML 入口注入点，未配置时 HTML 注入路径生效。 */
   readonly appendTo?: string | RegExp
   /** 已补齐默认值的通用 DevTools 配置。 */
@@ -871,6 +966,10 @@ export interface VueRuntimeRpc {
   }): void | Promise<void>
   /** 回传 selector 查询结果。 */
   onDomQueryUpdated(event: string, data: unknown): void
+  /** 获取用户复制元素 ID 对应的源码、组件和 DOM 上下文。 */
+  getElementContext(options: RuntimeElementContextRequest): void | Promise<void>
+  /** 回传元素上下文，使用事件名隔离并发 MCP 请求。 */
+  onElementContextUpdated(event: string, data: ElementContextResult): void
   /** 触发页面刷新，用于测试前消除上一轮运行状态对页面初始化的影响。 */
   reloadPage(options: { event: string }): void | Promise<void>
   /** 回传页面刷新触发结果；Runtime 路径只能普通刷新，不能承诺绕过 HTTP 缓存。 */

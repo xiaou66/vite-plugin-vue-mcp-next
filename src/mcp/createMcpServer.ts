@@ -3,6 +3,7 @@ import type { ViteDevServer } from 'vite'
 import type { VueMcpNextContext } from '../types'
 import { registerConsoleTools } from './tools/console'
 import { registerDomTools } from './tools/dom'
+import { registerElementContextTools } from './tools/elementContext'
 import { registerEvaluateTools } from './tools/evaluate'
 import { registerNetworkTools } from './tools/network'
 import { registerPerformanceTools } from './tools/performance'
@@ -28,6 +29,7 @@ export function createMcpServer(
 
   registerPageTools(server, ctx, vite)
   registerDomTools(server, ctx)
+  registerElementContextTools(server, ctx)
   registerScreenshotTools(server, ctx)
   registerConsoleTools(server, ctx)
   registerEvaluateTools(server, ctx)

@@ -1,7 +1,21 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { useCounterStore } from './main'
 
 const counter = useCounterStore()
+const runtimeFallbackHost = ref<HTMLElement | null>(null)
+
+/**
+ * 创建没有编译期标识的动态 DOM。
+ *
+ * 该按钮用于真实验证 runtime fallback ID 的生命周期边界，不能写在模板里，否则会被 SFC 注入源码 ID。
+ */
+onMounted(() => {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.textContent = 'Runtime Fallback Target'
+  runtimeFallbackHost.value?.appendChild(button)
+})
 
 function logMessage(): void {
   console.warn('playground log', { count: counter.count })
@@ -28,6 +42,11 @@ async function requestDemo(): Promise<void> {
       <RouterLink to="/about">About</RouterLink>
     </nav>
     <section class="actions">
+      <button type="button">Project Source Target</button>
+      <div class="component-like-target">
+        <button type="button">Component Wrapper Target</button>
+      </div>
+      <div ref="runtimeFallbackHost" class="runtime-fallback-host" />
       <button type="button" @click="counter.increment()">
         Increment Pinia
       </button>
@@ -50,5 +69,13 @@ nav {
   display: flex;
   gap: 12px;
   margin: 16px 0;
+}
+
+.component-like-target {
+  display: inline-flex;
+}
+
+.runtime-fallback-host {
+  display: inline-flex;
 }
 </style>

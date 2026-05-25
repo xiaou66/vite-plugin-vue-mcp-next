@@ -11,6 +11,7 @@
 | 页面列表            | Vite entry + Runtime | Vite entry + Runtime + CDP target | 用于多页面和多 tab 场景下选择调试目标                     |
 | DOM tree            | Runtime Hook         | CDP 优先，Hook 兜底               | 可返回裁剪后的运行时 DOM 结构                             |
 | DOM selector 查询   | Runtime Hook         | CDP 优先，Hook 兜底               | 可按 selector 返回节点文本、属性和布局信息                |
+| 元素选择上下文      | 编译期 ID + Runtime Hook | 编译期 ID + Runtime Hook     | 按住快捷键选择元素，复制 elementId 后通过 MCP 返回组件、DOM 和可编辑源码位置 |
 | 页面截图            | snapdom DOM 截图     | CDP 真截图优先，snapdom 降级      | 默认保存到项目目录并返回路径，也可配置为 base64 返回      |
 | Console 日志        | Runtime Hook         | CDP 优先，Hook 兜底               | 采集 `log/info/warn/error/debug` 和运行时日志             |
 | Evaluate 控制台执行 | Runtime Hook         | CDP 优先，Hook 兜底               | 默认关闭，必须显式开启                                    |
@@ -59,6 +60,36 @@ Streamable HTTP: http://localhost:<vite-port>/__mcp/mcp
 如果项目中没有对应入口，默认不会创建该客户端配置。需要强制创建时，可以在 `mcpClients` 中显式设置对应客户端为 `true`；需要禁用时显式设置为 `false`。
 
 实际端口以启动日志中的 `MCP: SSE server is running at ...` 和 `MCP: Streamable HTTP server is running at ...` 为准。
+
+### 页面元素选择
+
+开发服务器启动后，页面内默认支持 `Option + Shift` / `Alt + Shift` 进入元素选择模式。按住快捷键移动鼠标会高亮当前元素，单击后插件会自动复制 `elementId`，并提示 `元素位置已复制，请发送给 AI`。
+
+AI 收到 `elementId` 后应调用：
+
+```json
+{
+  "tool": "get_element_context",
+  "arguments": {
+    "elementId": "src/pages/Home.vue:12:8"
+  }
+}
+```
+
+项目源码会返回 `editable: true` 和 `codeLocation`；第三方组件会返回 `editable: false`、`packageName` 和 `entryFile`；运行时兜底 ID 只在当前页面生命周期内有效。
+
+```ts
+vueMcpNext({
+  elementPicker: {
+    enabled: true,
+    shortcut: {
+      altKey: true,
+      shiftKey: true
+    },
+    toastDurationMs: 2200
+  }
+})
+```
 
 ### 手动配置 MCP 客户端
 
@@ -137,6 +168,16 @@ vueMcpNext({
   },
   skill: {
     autoConfig: true
+  },
+  elementPicker: {
+    enabled: true,
+    shortcut: {
+      altKey: true,
+      shiftKey: true,
+      metaKey: false,
+      ctrlKey: false
+    },
+    toastDurationMs: 2200
   },
   appendTo: undefined,
   runtime: {

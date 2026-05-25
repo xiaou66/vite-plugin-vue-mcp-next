@@ -30,6 +30,9 @@ describe('runtime injection', () => {
     expect(controller.load(RESOLVED_VIRTUAL_RUNTIME_ID)).toContain(
       'setSnapdomLoader(loadSnapdom);'
     )
+    expect(controller.load(RESOLVED_VIRTUAL_RUNTIME_ID)).toContain(
+      'void startRuntimeClient({"elementPicker":'
+    )
   })
 
   it('generates static imports for snapdom extension Vite paths', () => {
