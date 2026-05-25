@@ -6,6 +6,7 @@ const installVueBridge = vi.fn()
 const installPerformanceHook = vi.fn()
 const installConsoleHook = vi.fn()
 const installNetworkHook = vi.fn()
+const installElementPicker = vi.fn()
 const getRuntimeClientId = vi.fn(() => 'runtime-client-test')
 const getRuntimePageIdentity = vi.fn(() => ({
   pageId: 'runtime-test',
@@ -41,6 +42,10 @@ vi.mock('../../src/runtime/consoleHook', () => ({
 
 vi.mock('../../src/runtime/networkHook', () => ({
   installNetworkHook
+}))
+
+vi.mock('../../src/runtime/elementPicker', () => ({
+  installElementPicker
 }))
 
 vi.mock('../../src/runtime/pageIdentity', () => ({
@@ -111,6 +116,36 @@ describe('startRuntimeClient', () => {
 
     expect(arg.pageId).toBe('runtime-test')
     expect(typeof arg.send).toBe('function')
+  })
+
+  it('installs the element picker with resolved runtime options', async () => {
+    const hot = { send: vi.fn() }
+    createHotContext.mockResolvedValue(hot)
+
+    const { startRuntimeClient } = await import('../../src/runtime/client')
+    await startRuntimeClient({
+      elementPicker: {
+        enabled: true,
+        shortcut: {
+          altKey: true,
+          shiftKey: true,
+          metaKey: false,
+          ctrlKey: false
+        },
+        toastDurationMs: 2200
+      }
+    })
+
+    expect(installElementPicker).toHaveBeenCalledWith({
+      enabled: true,
+      shortcut: {
+        altKey: true,
+        shiftKey: true,
+        metaKey: false,
+        ctrlKey: false
+      },
+      toastDurationMs: 2200
+    })
   })
 
   it('sends runtime heartbeat and disconnect signals around page unload', async () => {

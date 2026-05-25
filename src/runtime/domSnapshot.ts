@@ -34,6 +34,13 @@ export interface DomElementQueryResult {
 }
 
 /**
+ * 单个 DOM 元素摘要。
+ *
+ * 元素上下文工具只需要目标元素本身的可读信息，不应返回整棵 DOM。
+ */
+export type DomElementSummary = DomElementQueryResult
+
+/**
  * 创建裁剪后的 DOM 快照。
  *
  * DOM 输出必须裁剪，因为 MCP 上下文有限，大页面直接返回会导致 AI 无法消费。
@@ -66,7 +73,7 @@ export function createDomSnapshot(
 
     const tag = node.tagName.toLowerCase()
 
-    if (['script', 'style', 'noscript'].includes(tag)) {
+    if (['script', 'style', 'noscript'].includes(tag) || isInternalMcpElement(node)) {
       return null
     }
 
@@ -88,13 +95,23 @@ export function queryDomElements(
   limit: number
 ): DomElementQueryResult[] {
   return Array.from(document.querySelectorAll(selector))
+    .filter((element) => !isInternalMcpElement(element))
     .slice(0, limit)
-    .map((element) => ({
-      tag: element.tagName.toLowerCase(),
-      text: element.textContent.trim(),
-      attrs: collectAttrs(element),
-      rect: serializeRect(element.getBoundingClientRect())
-    }))
+    .map((element) => createDomElementSummary(element))
+}
+
+/**
+ * 创建单个 DOM 元素摘要。
+ *
+ * 该结构用于 `get_element_context` 返回目标元素上下文，避免 AI 只拿到源码位置却看不到页面语义。
+ */
+export function createDomElementSummary(element: Element): DomElementSummary {
+  return {
+    tag: element.tagName.toLowerCase(),
+    text: element.textContent.trim(),
+    attrs: collectAttrs(element),
+    rect: serializeRect(element.getBoundingClientRect())
+  }
 }
 
 /**
@@ -135,6 +152,7 @@ function createElementSnapshot(
 
   return {
     tag,
+    ...(node.textContent.trim() ? { text: node.textContent.trim() } : {}),
     ...(Object.keys(attrs).length ? { attrs } : {}),
     ...(children.length ? { children } : {})
   }
@@ -145,14 +163,18 @@ function createElementSnapshot(
  *
  * 密码输入框的 value 不能泄露给 MCP 客户端，即使它只在本地开发环境使用。
  */
-function collectAttrs(element: Element): Record<string, string> {
+export function collectAttrs(element: Element): Record<string, string> {
   const attrs: Record<string, string> = {}
 
   for (const attr of Array.from(element.attributes)) {
     attrs[attr.name] = attr.value
   }
 
-  if (element instanceof HTMLInputElement && element.type === 'password') {
+  if (
+    typeof HTMLInputElement !== 'undefined' &&
+    element instanceof HTMLInputElement &&
+    element.type === 'password'
+  ) {
     attrs.value = '[masked]'
   }
 
@@ -164,7 +186,7 @@ function collectAttrs(element: Element): Record<string, string> {
  *
  * 浏览器返回的 DOMRect 不是普通 JSON 对象，显式挑选字段可以让 MCP 输出稳定且可测试。
  */
-function serializeRect(rect: DOMRect): Record<string, number> {
+export function serializeRect(rect: DOMRect): Record<string, number> {
   return {
     x: rect.x,
     y: rect.y,
@@ -175,4 +197,13 @@ function serializeRect(rect: DOMRect): Record<string, number> {
     bottom: rect.bottom,
     left: rect.left
   }
+}
+
+/**
+ * 识别 MCP 内部调试元素。
+ *
+ * overlay/toast 是插件自身 UI，返回给 AI 会污染业务 DOM 判断，因此所有 DOM 输出统一过滤。
+ */
+function isInternalMcpElement(element: Element): boolean {
+  return element.getAttribute('data-v-mcp-internal') === 'true'
 }

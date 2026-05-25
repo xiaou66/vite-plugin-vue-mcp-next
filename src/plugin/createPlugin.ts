@@ -22,6 +22,7 @@ import type {
   VueMcpNextOptions
 } from '../types'
 import { createCdpLifecycleController } from './cdpLifecycle'
+import { createElementInstrumentationController } from './elementInstrumentation'
 import { createRuntimeInjectionController } from './injectRuntime'
 import { updateMcpClientConfigs } from './mcpClientConfig'
 import { updateSkillConfigs } from './skillConfig'
@@ -41,6 +42,9 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
     options,
     () => config
   )
+  let elementInstrumentation:
+    | ReturnType<typeof createElementInstrumentationController>
+    | undefined
   const cdpLifecycle = createCdpLifecycleController(ctx)
   ctx.cdpLifecycle = cdpLifecycle
 
@@ -50,6 +54,9 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
     apply: 'serve',
     configResolved(resolvedConfig) {
       config = resolvedConfig
+      elementInstrumentation = createElementInstrumentationController({
+        root: resolvedConfig.root
+      })
     },
     async configureServer(server) {
       ctx.server = server
@@ -161,7 +168,29 @@ export function vueMcpNext(userOptions: VueMcpNextOptions = {}): Plugin {
       return runtimeInjection.load(id)
     },
     transform(code, id, transformOptions) {
-      return runtimeInjection.transform(code, id, transformOptions?.ssr)
+      const instrumented = elementInstrumentation?.transform(
+        code,
+        id,
+        transformOptions?.ssr
+      )
+      const nextCode =
+        instrumented &&
+        typeof instrumented === 'object' &&
+        'code' in instrumented &&
+        typeof instrumented.code === 'string'
+          ? instrumented.code
+          : code
+      const runtimeInjected = runtimeInjection.transform(
+        nextCode,
+        id,
+        transformOptions?.ssr
+      )
+
+      if (runtimeInjected) {
+        return runtimeInjected
+      }
+
+      return instrumented
     },
     transformIndexHtml(html) {
       return runtimeInjection.transformIndexHtml(html)

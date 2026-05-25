@@ -215,4 +215,42 @@ describe('runtime DevTools options', () => {
       serverName: 'manual-name'
     })
   })
+
+  it('enables element picker with Option/Alt + Shift by default', () => {
+    const options = mergeOptions()
+
+    expect(options.elementPicker).toEqual({
+      enabled: true,
+      shortcut: {
+        altKey: true,
+        shiftKey: true,
+        metaKey: false,
+        ctrlKey: false
+      },
+      toastDurationMs: 2200
+    })
+  })
+
+  it('merges element picker options without losing shortcut defaults', () => {
+    const options = mergeOptions({
+      elementPicker: {
+        toastDurationMs: 3000,
+        shortcut: {
+          metaKey: true,
+          altKey: false
+        }
+      }
+    })
+
+    expect(options.elementPicker).toEqual({
+      enabled: true,
+      shortcut: {
+        altKey: false,
+        shiftKey: true,
+        metaKey: true,
+        ctrlKey: false
+      },
+      toastDurationMs: 3000
+    })
+  })
 })

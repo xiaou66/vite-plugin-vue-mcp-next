@@ -5,12 +5,20 @@
  */
 import { createHotContext } from 'vite-hot-client'
 import {
+  DEFAULT_OPTIONS,
   DEFAULT_RUNTIME_PAGE_HEARTBEAT_INTERVAL_MS,
   RUNTIME_PAGE_CONNECTED_EVENT,
   RUNTIME_PAGE_DISCONNECTED_EVENT,
   RUNTIME_PAGE_HEARTBEAT_EVENT
 } from '../constants'
+import type { RuntimeClientOptions } from '../types'
 import { installConsoleHook } from './consoleHook'
+import { installElementPicker } from './elementPicker'
+import {
+  createElementContextResolver,
+  setElementContextResolver
+} from './elementContext'
+import { runtimeElementRegistry } from './elementRegistry'
 import { installNetworkHook } from './networkHook'
 import { getRuntimeClientId, getRuntimePageIdentity } from './pageIdentity'
 import { installPerformanceHook } from './performanceHook'
@@ -24,7 +32,11 @@ export type { RuntimeEvaluateRequest } from './evaluateExpression'
  *
  * Vue Devtools hook 必须在等待 Vite hot context 前同步初始化，否则 Vue app 挂载时会错过注册窗口。
  */
-export async function startRuntimeClient(): Promise<void> {
+export async function startRuntimeClient(
+  runtimeOptions: RuntimeClientOptions = {
+    elementPicker: DEFAULT_OPTIONS.elementPicker
+  }
+): Promise<void> {
   initializeVueDevtoolsHook()
 
   const hot = await createHotContext('vite-plugin-vue-mcp-next', '/')
@@ -34,6 +46,7 @@ export async function startRuntimeClient(): Promise<void> {
   }
 
   installVueBridge(hot)
+  installElementPicker(runtimeOptions.elementPicker)
 
   const identity = getRuntimePageIdentity({
     href: window.location.href,
@@ -43,6 +56,16 @@ export async function startRuntimeClient(): Promise<void> {
     innerHeight: window.innerHeight,
     readyState: document.readyState
   })
+
+  setElementContextResolver(
+    createElementContextResolver({
+      root: runtimeOptions.projectRoot ?? '/',
+      registry: runtimeElementRegistry,
+      querySelector(selector) {
+        return document.querySelector(selector)
+      }
+    })
+  )
 
   hot.send(RUNTIME_PAGE_CONNECTED_EVENT, identity)
   installRuntimePageLifecycle({

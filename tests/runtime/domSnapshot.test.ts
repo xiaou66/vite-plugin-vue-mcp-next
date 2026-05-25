@@ -34,6 +34,10 @@ class FakeElement extends FakeNode {
       toJSON: () => ({ x: 0, y: 0, width: 100, height: 20 })
     }
   }
+
+  getAttribute(name: string) {
+    return this.attributes.find((attr) => attr.name === name)?.value ?? null
+  }
 }
 
 class FakeInputElement extends FakeElement {
@@ -129,5 +133,29 @@ describe('DOM snapshot', () => {
         text: 'Save'
       })
     ])
+  })
+
+  it('skips internal MCP overlay elements', () => {
+    const overlay = new FakeElement({
+      tagName: 'div',
+      attributes: [{ name: 'data-v-mcp-internal', value: 'true' }],
+      textContent: '元素位置已复制，请发送给 AI'
+    })
+    const root = new FakeElement({
+      tagName: 'main',
+      childNodes: [
+        overlay,
+        new FakeElement({ tagName: 'button', textContent: 'Save' })
+      ]
+    })
+
+    const snapshot = createDomSnapshot(root as unknown as Element, {
+      maxDepth: 5,
+      maxNodes: 20,
+      maxTextLength: 50
+    })
+
+    expect(JSON.stringify(snapshot)).toContain('Save')
+    expect(JSON.stringify(snapshot)).not.toContain('元素位置已复制')
   })
 })

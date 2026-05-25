@@ -56,7 +56,7 @@ export function createRuntimeInjectionController(
     },
     load(id) {
       if (id === RESOLVED_VIRTUAL_RUNTIME_ID) {
-        return createRuntimeModule()
+        return createRuntimeModule(options, getConfig()?.root)
       }
 
       if (id === RESOLVED_VIRTUAL_SCREENSHOT_CONFIG_ID) {
@@ -116,14 +116,20 @@ export function createRuntimeInjectionController(
  * screenshot 配置必须在 Vite 虚拟模块里解析，但发布包 runtime 不能直接 import 虚拟模块；
  * 因此由这个宿主项目内的虚拟入口完成注册，再启动通用 runtime client。
  */
-function createRuntimeModule(): string {
+function createRuntimeModule(
+  options: ResolvedVueMcpNextOptions,
+  root?: string
+): string {
   return [
     "import { setScreenshotModuleRegistry, setSnapdomLoader, startRuntimeClient } from '@xiaou66/vite-plugin-vue-mcp-next/runtime/client';",
     `import { screenshotModuleRegistry } from '${VIRTUAL_SCREENSHOT_CONFIG_ID}';`,
     `import { loadSnapdom } from '${VIRTUAL_SNAPDOM_LOADER_ID}';`,
     'setScreenshotModuleRegistry(screenshotModuleRegistry);',
     'setSnapdomLoader(loadSnapdom);',
-    'void startRuntimeClient();'
+    `void startRuntimeClient(${JSON.stringify({
+      elementPicker: options.elementPicker,
+      projectRoot: root
+    })});`
   ].join('\n')
 }
 

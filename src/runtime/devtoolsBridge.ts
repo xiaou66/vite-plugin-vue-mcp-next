@@ -1,5 +1,6 @@
 import type { VueRuntimeRpc } from '../types'
 import { createDomSnapshot, queryDomElements } from './domSnapshot'
+import { getElementContextResolver } from './elementContext'
 import { evaluateExpression } from './evaluateExpression'
 import { takeRuntimeScreenshot } from './screenshot'
 import { createRuntimeStorageBridge } from './storageBridge'
@@ -18,6 +19,8 @@ export function createRuntimeDevtoolsRpc(
   | 'onDomTreeUpdated'
   | 'queryDom'
   | 'onDomQueryUpdated'
+  | 'getElementContext'
+  | 'onElementContextUpdated'
   | 'reloadPage'
   | 'onPageReloaded'
   | 'evaluateScript'
@@ -46,6 +49,22 @@ export function createRuntimeDevtoolsRpc(
       )
     },
     onDomQueryUpdated: () => undefined,
+    getElementContext(options) {
+      try {
+        getRpc().onElementContextUpdated(
+          options.event,
+          getElementContextResolver().getElementContext(options.elementId)
+        )
+      } catch (error) {
+        getRpc().onElementContextUpdated(options.event, {
+          ok: false,
+          elementId: options.elementId,
+          error: error instanceof Error ? error.message : String(error),
+          limitations: ['runtime element context lookup failed']
+        })
+      }
+    },
+    onElementContextUpdated: () => undefined,
     reloadPage(options) {
       getRpc().onPageReloaded(options.event, { ok: true, source: 'hook' })
       setTimeout(() => {
