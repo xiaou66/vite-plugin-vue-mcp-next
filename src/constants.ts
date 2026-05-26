@@ -46,6 +46,7 @@ export const MCP_TOOL_NAMES = {
   takeScreenshot: 'take_screenshot',
   getConsoleLogs: 'get_console_logs',
   clearConsoleLogs: 'clear_console_logs',
+  inspectConsoleArg: 'inspect_console_arg',
   evaluateScript: 'evaluate_script',
   getNetworkRequests: 'get_network_requests',
   getNetworkRequestDetail: 'get_network_request_detail',

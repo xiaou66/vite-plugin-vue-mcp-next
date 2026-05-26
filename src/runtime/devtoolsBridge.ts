@@ -4,6 +4,7 @@ import { getElementContextResolver } from './elementContext'
 import { evaluateExpression } from './evaluateExpression'
 import { takeRuntimeScreenshot } from './screenshot'
 import { createRuntimeStorageBridge } from './storageBridge'
+import { inspectConsoleArg } from './consoleArgRegistry'
 
 /**
  * 创建通用 Runtime DevTools RPC。
@@ -29,6 +30,8 @@ export function createRuntimeDevtoolsRpc(
   | 'onScreenshotTaken'
   | 'manageStorage'
   | 'onStorageUpdated'
+  | 'inspectConsoleArg'
+  | 'onConsoleArgInspected'
 > {
   return {
     getDomTree(options) {
@@ -118,6 +121,14 @@ export function createRuntimeDevtoolsRpc(
         await bridge.manageStorage(options)
       )
     },
-    onStorageUpdated: () => undefined
+    onStorageUpdated: () => undefined,
+    inspectConsoleArg(options) {
+      if (!options.event) {
+        return
+      }
+
+      getRpc().onConsoleArgInspected(options.event, inspectConsoleArg(options))
+    },
+    onConsoleArgInspected: () => undefined
   }
 }

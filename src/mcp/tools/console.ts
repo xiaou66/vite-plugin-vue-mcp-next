@@ -2,7 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { MCP_TOOL_NAMES } from '../../constants'
 import type { VueMcpNextContext } from '../../types'
-import { createToolResponse } from '../routeTools'
+import { createToolResponse, requestRuntimeData } from '../routeTools'
 
 /**
  * 注册 Console 相关 MCP 工具。
@@ -46,6 +46,37 @@ export function registerConsoleTools(
       ctx.consoleRecords.clear()
 
       return createToolResponse({ ok: true })
+    }
+  )
+
+  server.registerTool(
+    MCP_TOOL_NAMES.inspectConsoleArg,
+    {
+      description:
+        'Inspect an object argument captured from runtime console logs by argId.',
+      inputSchema: {
+        argId: z.string(),
+        maxDepth: z.number().optional(),
+        maxKeys: z.number().optional(),
+        maxArrayItems: z.number().optional(),
+        maxStringLength: z.number().optional(),
+        maxTotalNodes: z.number().optional()
+      }
+    },
+    async (input) => {
+      const data = await requestRuntimeData(ctx, (event) => {
+        void ctx.rpcServer?.inspectConsoleArg({
+          event,
+          argId: input.argId,
+          maxDepth: input.maxDepth,
+          maxKeys: input.maxKeys,
+          maxArrayItems: input.maxArrayItems,
+          maxStringLength: input.maxStringLength,
+          maxTotalNodes: input.maxTotalNodes
+        })
+      })
+
+      return createToolResponse({ source: 'hook', data })
     }
   )
 }

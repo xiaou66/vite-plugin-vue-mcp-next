@@ -38,6 +38,10 @@ export function createServerVueRuntimeRpc(
     onStorageUpdated: (event, data) => {
       void ctx.hooks.callHook(event, data)
     },
+    inspectConsoleArg: () => undefined,
+    onConsoleArgInspected: (event, data) => {
+      void ctx.hooks.callHook(event, data)
+    },
     recordPerformance: () => undefined,
     onPerformanceRecorded: (event, data) => {
       void ctx.hooks.callHook(event, data)

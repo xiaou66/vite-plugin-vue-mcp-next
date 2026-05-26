@@ -847,6 +847,67 @@ export interface ConsoleRecord {
 }
 
 /**
+ * Console 对象参数引用。
+ *
+ * Runtime Hook 只把复杂对象登记为引用，避免日志采集阶段遍历 Vue vnode、reactive proxy 或组件实例。
+ */
+export interface ConsoleArgReference {
+  /** 固定为 object，方便 MCP 调用方从基础类型参数中识别可 inspect 参数。 */
+  readonly type: 'object'
+  /** 对象粗分类，用于展示数组和普通对象的差异，不代表完整 JavaScript 类型。 */
+  readonly kind: 'object' | 'array'
+  /** 浏览器 runtime 内的临时引用 ID，页面刷新或引用表淘汰后会失效。 */
+  readonly argId: string
+  /** 面向日志 message 的展示标签，例如 `[Object:console-arg_x]`。 */
+  readonly label: string
+}
+
+/**
+ * Runtime Console 参数 inspect 请求。
+ *
+ * 该请求只在 AI 明确需要查看对象内容时触发，预算参数用于限制页面主线程上的读取成本。
+ */
+export interface RuntimeConsoleArgInspectRequest {
+  /** 并发隔离事件名，服务端用它等待对应 runtime 回调；直接测试 registry 时可省略。 */
+  readonly event?: string
+  /** 来自 ConsoleArgReference 的临时对象引用 ID。 */
+  readonly argId: string
+  /** 最大递归深度，默认由 runtime 侧的序列化工具兜底。 */
+  readonly maxDepth?: number
+  /** 单个对象最多读取的 key 数量。 */
+  readonly maxKeys?: number
+  /** 单个数组最多读取的元素数量。 */
+  readonly maxArrayItems?: number
+  /** 单个字符串最多保留的长度。 */
+  readonly maxStringLength?: number
+  /** 单次 inspect 最多访问的对象或数组节点数量。 */
+  readonly maxTotalNodes?: number
+}
+
+/**
+ * Runtime Console 参数 inspect 结果。
+ *
+ * 引用过期或页面刷新时返回结构化错误，避免 MCP 客户端把空结果误解为对象为空。
+ */
+export type RuntimeConsoleArgInspectResult =
+  | {
+      /** 表示 inspect 成功。 */
+      readonly ok: true
+      /** 被读取的临时对象引用 ID。 */
+      readonly argId: string
+      /** 有预算的对象快照，仍然不是原对象的无损拷贝。 */
+      readonly preview: unknown
+    }
+  | {
+      /** 表示引用不可用或读取失败。 */
+      readonly ok: false
+      /** 被请求的临时对象引用 ID。 */
+      readonly argId: string
+      /** 给 AI 展示的失败原因。 */
+      readonly error: string
+    }
+
+/**
  * 页面网络请求的统一记录。
  *
  * CDP 和 Hook 能采集到的字段不同，但 MCP 工具需要用同一种结构回答
@@ -991,6 +1052,15 @@ export interface VueRuntimeRpc {
   manageStorage(options: RuntimeStorageRequest): void | Promise<void>
   /** 回传 Runtime 存储访问结果，使用事件名隔离并发 MCP 请求。 */
   onStorageUpdated(event: string, data: RuntimeStorageResult): void
+  /** 按需读取 console 日志中的对象参数，避免日志采集阶段自动遍历复杂对象。 */
+  inspectConsoleArg(
+    options: RuntimeConsoleArgInspectRequest
+  ): void | Promise<void>
+  /** 回传 console 对象参数 inspect 结果。 */
+  onConsoleArgInspected(
+    event: string,
+    data: RuntimeConsoleArgInspectResult
+  ): void
   /** 读取 Vue component inspector tree，用于 `get_component_tree` 工具。 */
   getInspectorTree(options: {
     event: string
